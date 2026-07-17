@@ -1,0 +1,1079 @@
+<!doctype html>
+<html lang="pt-BR" data-page="club">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Painel de gestão para arenas Quadrafy." />
+    <title>Gestão da arena — Quadrafy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Montserrat:wght@400;500;600;700&family=Poppins:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body class="app-page club-app">
+    <header class="app-nav">
+      <a
+        class="brand brand--image"
+        href="index.html"
+        aria-label="Quadrafy Gestão, início"
+      >
+        <span class="brand-logo-surface brand-logo-surface--nav">
+          <img
+            class="brand-logo brand-logo--full brand-logo--nav"
+            src="assets/images/quadrafy-logo.png"
+            width="1600"
+            height="485"
+            alt="Quadrafy"
+          />
+        </span>
+        <small class="brand-tag">GESTÃO</small>
+      </a>
+      <nav class="app-tabs" aria-label="Gestão do clube">
+        <button class="active" type="button" data-owner-tab="arenas">
+          Minhas arenas</button
+        ><button type="button" data-owner-tab="super8">Super 8</button
+        ><button type="button" data-owner-tab="finance">Financeiro</button>
+      </nav>
+      <div class="profile-menu">
+        <button
+          class="notification-button"
+          type="button"
+          aria-label="Notificações"
+          data-icon="bell"
+        >
+          <i></i></button
+        ><button class="profile-trigger" type="button" data-profile-trigger>
+          <span class="user-avatar coral-avatar" data-user-initials>—</span
+          ><span class="profile-name"
+            ><strong data-user-name>Carregando</strong
+            ><small data-user-subtitle>Administrador</small></span
+          ><b>⌄</b>
+        </button>
+        <div class="profile-dropdown" data-profile-dropdown>
+          <button type="button">Minha conta</button
+          ><button type="button" data-logout>Sair</button>
+        </div>
+      </div>
+      <button
+        class="app-menu-toggle"
+        type="button"
+        data-app-menu
+        aria-label="Abrir navegação"
+      >
+        <span></span><span></span>
+      </button>
+    </header>
+
+    <main class="app-main">
+      <section class="app-view active" data-owner-view="arenas">
+        <div class="app-container">
+          <div class="app-heading">
+            <div>
+              <p class="eyebrow dark">Visão da operação</p>
+              <h1>Suas <em>arenas.</em></h1>
+              <p>Gerencie todos os seus espaços em um só lugar.</p>
+            </div>
+            <button
+              class="button button-primary shine"
+              type="button"
+              data-add-arena
+            >
+              + Adicionar arena
+            </button>
+          </div>
+          <section class="owner-kpis">
+            <article>
+              <span class="kpi-icon" data-icon="court"></span>
+              <div>
+                <small>Quadras ativas</small><strong data-kpi-courts>—</strong>
+              </div>
+              <em data-kpi-courts-context></em>
+            </article>
+            <article>
+              <span class="kpi-icon" data-icon="calendar"></span>
+              <div>
+                <small>Reservas hoje</small
+                ><strong data-kpi-bookings-today>—</strong>
+              </div>
+              <em data-kpi-bookings-trend></em>
+            </article>
+            <article>
+              <span class="kpi-icon" data-icon="chart"></span>
+              <div>
+                <small>Ocupação média</small
+                ><strong data-kpi-occupancy>—</strong>
+              </div>
+              <em data-kpi-occupancy-trend></em>
+            </article>
+            <article>
+              <span class="kpi-icon" data-icon="wallet"></span>
+              <div>
+                <small>Receita no mês</small><strong data-kpi-revenue>—</strong>
+              </div>
+              <em data-kpi-revenue-trend></em>
+            </article>
+          </section>
+          <div class="owner-arena-grid" data-owner-arena-grid></div>
+        </div>
+      </section>
+
+      <section class="app-view" data-owner-view="manage">
+        <div class="app-container detail-container">
+          <button class="back-button" type="button" data-back-arenas>
+            <span>←</span> Todas as arenas
+          </button>
+          <div class="manage-heading">
+            <div>
+              <div class="status-line">
+                <span data-manage-status>—</span><span data-manage-code></span>
+              </div>
+              <h1 data-manage-title>—</h1>
+              <p data-manage-address></p>
+            </div>
+            <div>
+              <button
+                class="button button-outline"
+                type="button"
+                data-preview-arena
+              >
+                Ver como jogador</button
+              ><button
+                class="button button-primary"
+                type="button"
+                data-new-booking
+              >
+                + Reserva fixa
+              </button>
+            </div>
+          </div>
+          <nav class="manage-tabs" aria-label="Seções da arena">
+            <button class="active" type="button" data-manage-tab="courts">
+              Quadras</button
+            ><button type="button" data-manage-tab="schedule">
+              Grade horária</button
+            ><button type="button" data-manage-tab="reservations">
+              Reservas
+              <span class="hidden" data-reservation-count></span></button
+            ><button type="button" data-manage-tab="settings">
+              Configurações
+            </button>
+          </nav>
+          <div class="manage-view active" data-manage-view="courts">
+            <div class="subheading">
+              <div>
+                <h2>Quadras da arena</h2>
+                <p>Configure disponibilidade, preço e características.</p>
+              </div>
+              <button
+                class="button button-primary"
+                type="button"
+                data-add-court
+              >
+                + Adicionar quadra
+              </button>
+            </div>
+            <div class="management-court-grid" data-management-courts></div>
+          </div>
+          <div class="manage-view" data-manage-view="schedule">
+            <div class="subheading">
+              <div>
+                <h2>Grade horária</h2>
+                <p>
+                  Visão geral da ocupação para
+                  <strong data-schedule-date>—</strong>.
+                </p>
+              </div>
+              <div class="schedule-actions">
+                <div
+                  class="schedule-period-toggle"
+                  role="group"
+                  aria-label="Período da grade"
+                >
+                  <button
+                    class="active"
+                    type="button"
+                    data-schedule-period="day"
+                    aria-pressed="true"
+                  >
+                    Dia
+                  </button>
+                  <button
+                    type="button"
+                    data-schedule-period="week"
+                    aria-pressed="false"
+                  >
+                    Semana
+                  </button>
+                </div>
+                <label class="input-group">
+                  <span class="sr-only">Data da grade</span>
+                  <input type="date" data-schedule-date-input />
+                </label>
+                <button
+                  class="button button-outline"
+                  type="button"
+                  data-schedule-today
+                >
+                  Hoje</button
+                ><button
+                  class="button square-button"
+                  type="button"
+                  data-schedule-previous
+                  aria-label="Dia anterior"
+                >
+                  ‹</button
+                ><button
+                  class="button square-button"
+                  type="button"
+                  data-schedule-next
+                  aria-label="Próximo dia"
+                >
+                  ›</button
+                ><button
+                  class="button button-primary"
+                  type="button"
+                  data-add-recurring
+                >
+                  + Reserva fixa
+                </button>
+              </div>
+            </div>
+            <div
+              class="owner-schedule"
+              data-owner-schedule
+              aria-live="polite"
+            ></div>
+          </div>
+          <div class="manage-view" data-manage-view="reservations">
+            <div class="subheading">
+              <div>
+                <h2>Reservas</h2>
+                <p>Acompanhe e gerencie as reservas desta arena.</p>
+              </div>
+              <label class="search-input compact-search"
+                ><span data-icon="search"></span
+                ><input type="search" placeholder="Buscar cliente"
+              /></label>
+            </div>
+            <div class="reservation-table-wrap">
+              <table class="reservation-table">
+                <thead>
+                  <tr>
+                    <th>Cliente</th>
+                    <th>Quadra</th>
+                    <th>Data e hora</th>
+                    <th>Pagamento</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody data-reservation-table></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="manage-view" data-manage-view="settings">
+            <div class="settings-layout">
+              <aside>
+                <button class="active" type="button">Informações gerais</button
+                ><button type="button">Funcionamento</button
+                ><button type="button">Políticas</button
+                ><button type="button">Equipe e acessos</button>
+              </aside>
+              <form data-club-settings-form>
+                <div class="subheading">
+                  <div>
+                    <h2>Informações gerais</h2>
+                    <p>Dados públicos exibidos para os jogadores.</p>
+                  </div>
+                </div>
+                <div class="profile-photo-upload club-photo-upload">
+                  <div class="profile-photo-preview club-photo-preview">
+                    <img
+                      data-club-photo-preview
+                      alt="Prévia da foto de capa da arena"
+                      hidden
+                    />
+                    <span data-club-photo-placeholder>QF</span>
+                  </div>
+                  <div class="profile-photo-upload-copy">
+                    <strong>Foto de capa da arena</strong>
+                    <span>JPEG, PNG ou WebP, com até 5 MB.</span>
+                    <label
+                      class="button button-outline profile-photo-button"
+                    >
+                      Escolher imagem
+                      <input
+                        type="file"
+                        name="photo"
+                        accept="image/jpeg,image/png,image/webp"
+                        data-club-photo-input
+                      />
+                    </label>
+                  </div>
+                </div>
+                <label class="input-group"
+                  ><span>Nome da arena</span
+                  ><input
+                    type="text"
+                    name="arenaName"
+                    minlength="2"
+                    maxlength="120"
+                    required
+                    data-setting-name /></label
+                ><label class="input-group"
+                  ><span>Descrição</span
+                  ><textarea
+                    rows="4"
+                    name="description"
+                    maxlength="800"
+                    data-setting-description
+                  ></textarea>
+                </label>
+                <div class="input-grid">
+                  <label class="input-group"
+                    ><span>Telefone</span
+                    ><input
+                      type="tel"
+                      name="phone"
+                      maxlength="40"
+                      data-setting-phone /></label
+                  ><label class="input-group"
+                    ><span>E-mail</span
+                    ><input
+                      type="email"
+                      name="email"
+                      readonly
+                      aria-describedby="club-email-help"
+                      data-setting-email
+                  /></label>
+                </div>
+                <small id="club-email-help"
+                  >O e-mail de acesso não é alterado por este formulário.</small
+                >
+                <label class="input-group"
+                  ><span>Endereço</span
+                  ><input
+                    type="text"
+                    name="address"
+                    minlength="5"
+                    maxlength="240"
+                    autocomplete="street-address"
+                    required
+                    data-setting-address
+                /></label>
+                <p
+                  class="auth-feedback hidden"
+                  role="status"
+                  aria-live="polite"
+                  data-club-settings-feedback
+                ></p>
+                <button class="button button-primary" type="submit">
+                  Salvar alterações
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="app-view" data-owner-view="super8">
+        <div class="app-container">
+          <div class="app-heading">
+            <div>
+              <p class="eyebrow dark">Torneios de rotação</p>
+              <h1>Seus <em>Super 8.</em></h1>
+              <p>
+                Monte torneios de 8, 12 ou 16 jogadores, em duplas fixas ou
+                rotação individual, distribuídos nas suas quadras.
+              </p>
+            </div>
+            <button
+              class="button button-primary shine"
+              type="button"
+              data-super8-create-open
+            >
+              + Criar novo Super 8
+            </button>
+          </div>
+          <div class="super8-grid" data-super8-grid>
+            <p class="profile-data-note">Carregando torneios…</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="app-view" data-owner-view="finance">
+        <div class="app-container finance-page">
+          <div class="app-heading finance-heading">
+            <div>
+              <p class="eyebrow dark">Financeiro</p>
+              <h1>Seus números,<br /><em>sem mistério.</em></h1>
+              <p>Acompanhe reservas pagas e receita por quadra e período.</p>
+            </div>
+          </div>
+
+          <form class="finance-filters" data-finance-filters>
+            <label class="input-group">
+              <span>Período</span>
+              <select name="period" data-finance-period>
+                <option value="month">Este mês</option>
+                <option value="week">Esta semana</option>
+                <option value="day">Hoje</option>
+                <option value="custom">Personalizado</option>
+              </select>
+            </label>
+            <label class="input-group">
+              <span>Quadra</span>
+              <select name="courtId" data-finance-court>
+                <option value="">Todas as quadras</option>
+              </select>
+            </label>
+            <label
+              class="input-group finance-date-field hidden"
+              data-finance-date-field
+            >
+              <span>De</span>
+              <input type="date" name="dateFrom" data-finance-date-from />
+            </label>
+            <label
+              class="input-group finance-date-field hidden"
+              data-finance-date-field
+            >
+              <span>Até</span>
+              <input type="date" name="dateTo" data-finance-date-to />
+            </label>
+          </form>
+
+          <section class="finance-kpis" aria-label="Resumo financeiro">
+            <article class="finance-kpi-card featured">
+              <span class="kpi-icon" data-icon="wallet"></span>
+              <div>
+                <small>Receita no período</small>
+                <strong data-finance-kpi-revenue>—</strong>
+                <small class="finance-comparison" data-finance-compare-revenue
+                  >—</small
+                >
+              </div>
+            </article>
+            <article class="finance-kpi-card">
+              <span class="kpi-icon" data-icon="calendar"></span>
+              <div>
+                <small>Reservas pagas</small>
+                <strong data-finance-kpi-paid-bookings>—</strong>
+                <small class="finance-comparison" data-finance-compare-bookings
+                  >—</small
+                >
+              </div>
+            </article>
+            <article class="finance-kpi-card">
+              <span class="kpi-icon" data-icon="chart"></span>
+              <div>
+                <small>Ticket médio</small>
+                <strong data-finance-kpi-average>—</strong>
+                <small class="finance-comparison" data-finance-compare-average
+                  >—</small
+                >
+              </div>
+            </article>
+            <article class="finance-kpi-card">
+              <span class="kpi-icon" data-icon="court"></span>
+              <div>
+                <small>A receber</small>
+                <strong data-finance-kpi-pending>—</strong>
+                <small class="finance-comparison">Sem comparativo</small>
+              </div>
+            </article>
+          </section>
+
+          <section class="finance-charts" aria-label="Gráficos financeiros">
+            <article class="finance-chart-card finance-chart-card-wide">
+              <header>
+                <p class="micro-label">Evolução</p>
+                <h2>Receita ao longo do tempo</h2>
+              </header>
+              <div class="finance-chart" data-chart-revenue></div>
+            </article>
+            <article class="finance-chart-card">
+              <header>
+                <p class="micro-label">Quadras</p>
+                <h2>Receita por quadra</h2>
+              </header>
+              <div class="finance-chart" data-chart-courts></div>
+            </article>
+            <article class="finance-chart-card">
+              <header>
+                <p class="micro-label">Capacidade</p>
+                <h2>Ocupação por quadra</h2>
+              </header>
+              <div class="finance-chart" data-chart-occupancy></div>
+            </article>
+            <article class="finance-chart-card">
+              <header>
+                <p class="micro-label">Recebimentos</p>
+                <h2>Formas de pagamento</h2>
+              </header>
+              <div class="finance-chart" data-chart-payments></div>
+            </article>
+          </section>
+
+          <section class="finance-breakdown">
+            <div class="subheading">
+              <div>
+                <p class="micro-label">Desempenho</p>
+                <h2>Receita por quadra</h2>
+                <p>
+                  Relação entre quadras cadastradas, reservas e valores pagos.
+                </p>
+              </div>
+            </div>
+            <div class="finance-court-list" data-finance-by-court></div>
+          </section>
+
+          <section class="finance-transactions">
+            <div class="subheading">
+              <div>
+                <p class="micro-label">Movimentações</p>
+                <h2>Reservas do período</h2>
+                <p>Valores, formas de pagamento e status de cada reserva.</p>
+              </div>
+            </div>
+            <div class="reservation-table-wrap">
+              <table class="reservation-table finance-table">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Quadra</th>
+                    <th>Cliente</th>
+                    <th>Pagamento</th>
+                    <th>Status</th>
+                    <th>Valor</th>
+                  </tr>
+                </thead>
+                <tbody data-finance-table></tbody>
+              </table>
+              <div class="table-empty-state hidden" data-finance-empty>
+                <strong>Nenhuma movimentação no período.</strong>
+                <p>As reservas pagas das suas quadras aparecerão aqui.</p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <div class="modal-backdrop" data-court-modal aria-hidden="true">
+      <form
+        class="modal-card court-form-modal"
+        data-court-form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="court-modal-title"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar"
+        >
+          ×
+        </button>
+        <p class="eyebrow dark" data-court-eyebrow>Nova quadra</p>
+        <h2 id="court-modal-title">Adicione uma quadra.</h2>
+        <p class="modal-description" data-court-description>
+          Cadastre os dados que serão exibidos aos jogadores.
+        </p>
+        <label class="input-group">
+          <span>Nome da quadra</span>
+          <input
+            type="text"
+            name="name"
+            maxlength="100"
+            placeholder="Nome da quadra"
+            required
+          />
+        </label>
+        <div class="input-grid court-form-grid">
+          <label class="input-group">
+            <span>Preço por reserva</span>
+            <input
+              type="number"
+              name="price"
+              min="1"
+              step="0.01"
+              inputmode="decimal"
+              placeholder="0,00"
+              required
+            />
+          </label>
+          <label class="input-group">
+            <span>Tipo</span>
+            <select name="type" required>
+              <option value="">Selecione</option>
+              <option value="covered">Coberta</option>
+              <option value="outdoor">Descoberta</option>
+            </select>
+          </label>
+        </div>
+        <div class="input-grid court-form-grid">
+          <label class="input-group">
+            <span>Abre às</span>
+            <select name="openTime" data-court-open-time required></select>
+          </label>
+          <label class="input-group">
+            <span>Fecha às</span>
+            <select name="closeTime" data-court-close-time required></select>
+          </label>
+        </div>
+        <label class="input-group">
+          <span>Duração padrão da reserva</span>
+          <select name="slotDuration" required>
+            <option value="60">1 hora</option>
+            <option value="90">1 hora e 30 minutos</option>
+          </select>
+        </label>
+        <div class="profile-photo-upload">
+          <div class="profile-photo-preview court-photo-preview">
+            <img
+              data-court-photo-preview
+              alt="Prévia da foto da quadra"
+              hidden
+            />
+            <span data-court-photo-placeholder>QD</span>
+          </div>
+          <div class="profile-photo-upload-copy">
+            <strong>Foto da quadra</strong>
+            <span>JPEG, PNG ou WebP, com até 5 MB.</span>
+            <label class="button button-outline profile-photo-button">
+              Escolher imagem
+              <input
+                type="file"
+                name="photo"
+                accept="image/jpeg,image/png,image/webp"
+                data-court-photo-input
+              />
+            </label>
+          </div>
+        </div>
+        <p
+          class="auth-feedback hidden"
+          role="alert"
+          aria-live="polite"
+          data-court-feedback
+        ></p>
+        <button
+          class="button button-primary button-block shine"
+          type="submit"
+          data-court-submit
+        >
+          Adicionar quadra
+        </button>
+        <button
+          class="button button-danger button-block hidden"
+          type="button"
+          data-court-delete-open
+        >
+          Excluir quadra
+        </button>
+      </form>
+    </div>
+
+    <div class="modal-backdrop" data-court-delete-modal aria-hidden="true">
+      <div
+        class="modal-card court-delete-modal"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="court-delete-title"
+        aria-describedby="court-delete-message"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar confirmação"
+        >
+          ×
+        </button>
+        <p class="eyebrow dark">Ação permanente</p>
+        <h2 id="court-delete-title">Excluir quadra?</h2>
+        <p id="court-delete-message" data-court-delete-message>
+          Tem certeza que deseja excluir esta quadra? Essa ação não pode ser
+          desfeita.
+        </p>
+        <div class="court-delete-actions">
+          <button
+            class="button button-outline"
+            type="button"
+            data-modal-close
+          >
+            Cancelar
+          </button>
+          <button
+            class="button button-danger"
+            type="button"
+            data-court-delete-confirm
+          >
+            Confirmar exclusão
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" data-recurring-modal aria-hidden="true">
+      <form
+        class="modal-card court-form-modal"
+        data-recurring-form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="recurring-modal-title"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar"
+        >
+          ×
+        </button>
+        <p class="eyebrow dark">Agenda recorrente</p>
+        <h2 id="recurring-modal-title" data-recurring-modal-title>
+          Nova reserva fixa.
+        </h2>
+        <p class="modal-description" data-recurring-modal-description>
+          O horário ficará indisponível para novas reservas até esta recorrência
+          ser removida.
+        </p>
+        <label class="input-group">
+          <span>Nome do cliente</span>
+          <input
+            type="text"
+            name="clientName"
+            maxlength="100"
+            autocomplete="name"
+            placeholder="Nome da pessoa responsável"
+            required
+          />
+        </label>
+        <div class="input-grid court-form-grid">
+          <label class="input-group">
+            <span>Quadra</span>
+            <select name="courtId" data-recurring-court required></select>
+          </label>
+          <label class="input-group">
+            <span>Horário de início</span>
+            <select name="startTime" data-recurring-time required></select>
+          </label>
+        </div>
+        <div class="input-grid court-form-grid">
+          <label class="input-group">
+            <span>Recorrência</span>
+            <select name="frequency" data-recurring-frequency required>
+              <option value="weekly">Toda semana</option>
+              <option value="monthly">Todo mês</option>
+            </select>
+          </label>
+          <label class="input-group" data-weekly-day-field>
+            <span>Dia da semana</span>
+            <select name="dayOfWeek" data-recurring-weekday>
+              <option value="0">Domingo</option>
+              <option value="1">Segunda-feira</option>
+              <option value="2">Terça-feira</option>
+              <option value="3">Quarta-feira</option>
+              <option value="4">Quinta-feira</option>
+              <option value="5">Sexta-feira</option>
+              <option value="6">Sábado</option>
+            </select>
+          </label>
+          <label class="input-group hidden" data-monthly-day-field>
+            <span>Dia do mês</span>
+            <select name="dayOfMonth" data-recurring-monthday></select>
+          </label>
+        </div>
+        <p
+          class="auth-feedback hidden"
+          role="alert"
+          aria-live="polite"
+          data-recurring-feedback
+        ></p>
+        <button
+          class="button button-primary button-block shine"
+          type="submit"
+          data-recurring-submit
+        >
+          Criar reserva fixa
+        </button>
+      </form>
+    </div>
+
+    <div class="modal-backdrop" data-recurring-detail-modal aria-hidden="true">
+      <div
+        class="modal-card small-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="recurring-detail-title"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar"
+        >
+          ×
+        </button>
+        <div data-recurring-detail></div>
+        <div class="recurring-detail-actions">
+          <button
+            class="button button-primary button-block shine"
+            type="button"
+            data-edit-recurring
+          >
+            Editar reserva fixa
+          </button>
+          <button
+            class="button button-outline button-block"
+            type="button"
+            data-remove-recurring
+          >
+            Remover reserva fixa
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" data-generic-modal aria-hidden="true">
+      <div class="modal-card small-modal" role="dialog" aria-modal="true">
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar"
+        >
+          ×
+        </button>
+        <div data-generic-content></div>
+      </div>
+    </div>
+    <div class="toast" role="status" aria-live="polite" data-toast></div>
+    <script src="assets/js/app.js" defer></script>
+    <script src="assets/js/charts.js" defer></script>
+    <script src="assets/js/dashboard-club.js" defer></script>
+
+    <div class="modal-backdrop" data-super8-create-modal aria-hidden="true">
+      <div
+        class="modal-card super8-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="super8-create-title"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar criação de Super 8"
+        >
+          ×
+        </button>
+        <p class="eyebrow dark">Novo torneio</p>
+        <h2 id="super8-create-title">Criar Super 8.</h2>
+        <form data-super8-form>
+          <label class="input-group">
+            <span>Nome do torneio</span>
+            <input
+              type="text"
+              name="name"
+              maxlength="80"
+              placeholder="Ex.: Super 8 de Sexta"
+              required
+            />
+          </label>
+          <div class="form-grid-2">
+            <label class="input-group">
+              <span>Tamanho</span>
+              <select name="size" data-super8-size>
+                <option value="8">Super 8 · 8 jogadores</option>
+                <option value="12">Super 12 · 12 jogadores</option>
+                <option value="16">Super 16 · 16 jogadores</option>
+              </select>
+            </label>
+            <label class="input-group">
+              <span>Modalidade</span>
+              <select name="mode" data-super8-mode>
+                <option value="rotacao">Cada um por si (rotação)</option>
+                <option value="duplas_fixas">Duplas fixas</option>
+              </select>
+            </label>
+          </div>
+
+          <fieldset class="super8-fieldset">
+            <legend>
+              Jogadores
+              <span class="super8-count" data-super8-player-count>0/8</span>
+            </legend>
+            <div class="super8-add-row">
+              <label class="input-group">
+                <span>Buscar jogador cadastrado</span>
+                <input
+                  type="search"
+                  data-super8-search
+                  placeholder="Digite ao menos 2 letras"
+                  autocomplete="off"
+                />
+              </label>
+              <div
+                class="super8-search-results hidden"
+                data-super8-search-results
+              ></div>
+            </div>
+            <div class="super8-add-row">
+              <label class="input-group">
+                <span>Ou adicionar convidado (sem conta)</span>
+                <input
+                  type="text"
+                  data-super8-guest-name
+                  maxlength="80"
+                  placeholder="Nome do convidado"
+                />
+              </label>
+              <button
+                class="button button-outline"
+                type="button"
+                data-super8-add-guest
+              >
+                Adicionar convidado
+              </button>
+            </div>
+            <div class="super8-player-chips" data-super8-players></div>
+            <p class="profile-data-note">
+              Na modalidade "cada um por si" você pode criar o torneio com
+              menos jogadores e abrir inscrições para os atletas completarem
+              o quadro sozinhos.
+            </p>
+          </fieldset>
+
+          <fieldset class="super8-fieldset hidden" data-super8-pairs-block>
+            <legend>
+              Duplas fixas
+              <button
+                class="button button-outline"
+                type="button"
+                data-super8-shuffle-pairs
+              >
+                Sortear duplas automaticamente
+              </button>
+            </legend>
+            <p class="profile-data-note">
+              Escolha quem joga com quem — cada jogador entra em exatamente
+              uma dupla.
+            </p>
+            <div class="super8-pairs" data-super8-pairs></div>
+          </fieldset>
+
+          <fieldset class="super8-fieldset">
+            <legend>Quadras do torneio</legend>
+            <p class="profile-data-note">
+              Quanto mais quadras, mais jogos simultâneos por rodada.
+            </p>
+            <div class="super8-courts" data-super8-courts></div>
+          </fieldset>
+
+          <p
+            class="profile-data-note"
+            data-super8-form-note
+            aria-live="polite"
+          ></p>
+          <button
+            class="button button-primary button-block shine"
+            type="submit"
+            data-super8-submit
+          >
+            Criar torneio e gerar tabela
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" data-super8-result-modal aria-hidden="true">
+      <div
+        class="modal-card court-delete-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="super8-result-title"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar lançamento de placar"
+        >
+          ×
+        </button>
+        <p class="eyebrow dark">Placar do jogo</p>
+        <h2 id="super8-result-title" data-super8-result-title>
+          Lançar resultado.
+        </h2>
+        <p class="profile-data-note">
+          Informe o total de games de cada dupla (placar corrido, sem empate).
+        </p>
+        <form data-super8-result-form>
+          <div class="super8-score-row">
+            <label class="input-group">
+              <span data-super8-result-team1>Dupla 1</span>
+              <input
+                type="number"
+                name="team1Games"
+                min="0"
+                max="99"
+                step="1"
+                inputmode="numeric"
+                required
+              />
+            </label>
+            <span class="result-set-x" aria-hidden="true">×</span>
+            <label class="input-group">
+              <span data-super8-result-team2>Dupla 2</span>
+              <input
+                type="number"
+                name="team2Games"
+                min="0"
+                max="99"
+                step="1"
+                inputmode="numeric"
+                required
+              />
+            </label>
+          </div>
+          <button
+            class="button button-primary button-block shine"
+            type="submit"
+            data-super8-result-submit
+          >
+            Salvar placar
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" data-super8-detail-modal aria-hidden="true">
+      <div
+        class="modal-card super8-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="super8-detail-title"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar tabela do torneio"
+        >
+          ×
+        </button>
+        <p class="eyebrow dark">Tabela do torneio</p>
+        <h2 id="super8-detail-title" data-super8-detail-title>Super 8</h2>
+        <div data-super8-detail-content></div>
+      </div>
+    </div>
+
+  </body>
+</html>

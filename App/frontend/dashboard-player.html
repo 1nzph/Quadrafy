@@ -1,0 +1,1299 @@
+<!doctype html>
+<html lang="pt-BR" data-page="player">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Painel do jogador Quadrafy." />
+    <title>Área do jogador — Quadrafy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Montserrat:wght@400;500;600;700&family=Poppins:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body class="app-page">
+    <header class="app-nav">
+      <a
+        class="brand brand--image"
+        href="index.html"
+        aria-label="Quadrafy, início"
+      >
+        <span class="brand-logo-surface brand-logo-surface--nav">
+          <img
+            class="brand-logo brand-logo--full brand-logo--nav"
+            src="assets/images/quadrafy-logo.png"
+            width="1600"
+            height="485"
+            alt="Quadrafy"
+          />
+        </span>
+      </a>
+      <nav class="app-tabs" aria-label="Área do jogador">
+        <button class="active" type="button" data-player-tab="clubs">
+          Clubes
+        </button>
+        <button type="button" data-player-tab="bookings">
+          Reservas
+          <span class="nav-count hidden" data-booking-count></span>
+        </button>
+        <button type="button" data-player-tab="matches">
+          Jogos abertos
+          <span
+            class="nav-count hidden"
+            data-match-unread-count
+            aria-label="Mensagens não lidas"
+          ></span>
+        </button>
+        <button type="button" data-player-tab="history">
+          Histórico
+          <span
+            class="nav-count hidden"
+            data-history-count
+            aria-label="Partidas aguardando lançamento de resultado"
+          ></span>
+        </button>
+        <button type="button" data-player-tab="ranking">Ranking</button>
+        <button type="button" data-player-tab="profile">Perfil</button>
+      </nav>
+      <div class="profile-menu">
+        <button
+          class="notification-button"
+          type="button"
+          aria-label="Notificações"
+          data-icon="bell"
+        >
+          <i></i>
+        </button>
+        <button class="profile-trigger" type="button" data-profile-trigger>
+          <span class="user-avatar" data-user-initials>—</span
+          ><span class="profile-name"
+            ><strong data-user-name>Carregando</strong
+            ><small data-user-subtitle>Jogador</small></span
+          ><b>⌄</b>
+        </button>
+        <div class="profile-dropdown" data-profile-dropdown>
+          <button type="button" data-player-tab-link="profile">
+            Meu perfil</button
+          ><button type="button" data-logout>Sair</button>
+        </div>
+      </div>
+      <button
+        class="app-menu-toggle"
+        type="button"
+        data-app-menu
+        aria-label="Abrir navegação"
+      >
+        <span></span><span></span>
+      </button>
+    </header>
+
+    <main class="app-main">
+      <section class="app-view active" data-player-view="clubs">
+        <div class="app-container">
+          <div class="app-heading reveal">
+            <div>
+              <p class="eyebrow dark">Descobrir clubes</p>
+              <h1>Onde você quer<br /><em>jogar hoje?</em></h1>
+            </div>
+            <div class="heading-meta">
+              <span data-icon="pin"></span>
+              <div>
+                <small>Sua localização</small
+                ><strong data-player-location>—</strong>
+              </div>
+              <button type="button">Alterar</button>
+            </div>
+          </div>
+          <div class="search-toolbar reveal">
+            <label class="search-input"
+              ><span data-icon="search"></span
+              ><input
+                type="search"
+                placeholder="Buscar por clube ou bairro"
+                data-club-search
+            /></label>
+            <button
+              class="filter-button active"
+              type="button"
+              data-filter="all"
+            >
+              Todos
+            </button>
+            <button class="filter-button" type="button" data-filter="indoor">
+              Coberta
+            </button>
+            <button class="filter-button" type="button" data-filter="open">
+              Aberta agora
+            </button>
+            <button class="filter-button filter-more" type="button">
+              <span data-icon="filter"></span> Mais filtros
+            </button>
+          </div>
+          <div class="results-line">
+            <span><strong data-club-count>0</strong> clubes encontrados</span
+            ><label
+              >Ordenar por
+              <select data-club-sort>
+                <option value="recommended">Recomendados</option>
+                <option value="rating">Melhor avaliação</option>
+                <option value="price">Menor preço</option>
+              </select></label
+            >
+          </div>
+          <div class="club-grid" data-club-grid></div>
+        </div>
+      </section>
+
+      <section class="app-view" data-player-view="club-detail">
+        <div class="app-container detail-container">
+          <button class="back-button" type="button" data-back-clubs>
+            <span>←</span> Voltar aos clubes
+          </button>
+          <div class="club-detail-hero" data-club-detail></div>
+          <div class="booking-layout">
+            <section class="booking-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow dark">Disponibilidade</p>
+                  <h2>Escolha seu horário</h2>
+                </div>
+                <div class="slot-legend">
+                  <span><i class="free"></i>Livre</span
+                  ><span><i class="busy"></i>Ocupado</span>
+                </div>
+              </div>
+              <div
+                class="date-strip"
+                data-date-strip
+                aria-label="Escolha uma data"
+              ></div>
+              <div
+                class="court-selector"
+                data-court-selector
+                aria-label="Filtrar por quadra"
+              ></div>
+              <div class="time-grid" data-time-grid></div>
+            </section>
+            <aside class="booking-summary">
+              <p class="micro-label">Sua seleção</p>
+              <div class="empty-selection" data-empty-selection>
+                <span data-icon="calendar"></span>
+                <p>Selecione um horário livre para continuar.</p>
+              </div>
+              <div class="selection-content hidden" data-selection-content>
+                <div>
+                  <small>Clube</small><strong data-summary-club>—</strong>
+                </div>
+                <div class="summary-split">
+                  <span
+                    ><small>Data</small
+                    ><strong data-summary-date>—</strong></span
+                  ><span
+                    ><small>Horário</small
+                    ><strong data-summary-time>—</strong></span
+                  >
+                </div>
+                <div>
+                  <small>Quadra</small><strong data-summary-court>—</strong>
+                </div>
+                <div class="summary-price">
+                  <span>Total</span><strong data-summary-price>—</strong>
+                </div>
+                <button
+                  class="button button-primary button-block shine"
+                  type="button"
+                  data-open-booking
+                >
+                  Continuar reserva
+                </button>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section class="app-view" data-player-view="bookings">
+        <div class="app-container narrow-app">
+          <div class="app-heading">
+            <div>
+              <p class="eyebrow dark">Sua agenda</p>
+              <h1>Minhas <em>reservas.</em></h1>
+            </div>
+            <a
+              class="button button-primary"
+              href="#"
+              data-player-tab-link="clubs"
+              >Nova reserva <span>+</span></a
+            >
+          </div>
+          <div class="segment-tabs" data-booking-segments>
+            <button class="active" type="button" data-segment="upcoming">
+              Próximas
+              <span class="hidden" data-booking-upcoming-count></span></button
+            ><button type="button" data-segment="past">Histórico</button>
+          </div>
+          <div class="booking-list" data-booking-list></div>
+        </div>
+      </section>
+
+      <section class="app-view" data-player-view="matches">
+        <div class="app-container">
+          <div class="app-heading">
+            <div>
+              <p class="eyebrow dark">Jogue com gente nova</p>
+              <h1>Partidas <em>abertas.</em></h1>
+              <p>Encontre uma partida compatível com o seu nível.</p>
+            </div>
+            <button
+              class="button button-primary shine"
+              type="button"
+              data-create-match
+            >
+              + Criar partida
+            </button>
+          </div>
+          <div
+            class="level-banner hidden"
+            data-match-level-banner
+            aria-live="polite"
+          ></div>
+          <div class="match-gender-filter">
+            <label class="input-group">
+              <span>Categoria</span>
+              <select data-match-gender-filter aria-label="Filtrar jogos por categoria de gênero">
+                <option value="" selected>Todas as partidas</option>
+                <option value="all">Todos os jogadores</option>
+                <option value="women_only">Apenas Mulheres</option>
+                <option value="men_only">Apenas Homens</option>
+                <option value="mixed">Misto</option>
+              </select>
+            </label>
+          </div>
+          <button
+            class="super8-entry"
+            type="button"
+            data-super8-entry
+            aria-label="Abrir torneios Super 8"
+          >
+            <div>
+              <p class="micro-label">Torneios de rotação</p>
+              <strong>Super 8</strong>
+              <span data-super8-entry-note
+                >Veja seus torneios e inscrições abertas</span
+              >
+            </div>
+            <span class="super8-entry-arrow" aria-hidden="true">→</span>
+          </button>
+          <div class="match-grid" data-match-grid></div>
+        </div>
+      </section>
+
+      <section class="app-view" data-player-view="history">
+        <div class="app-container">
+          <div class="app-heading">
+            <div>
+              <p class="eyebrow dark">Partidas que já começaram</p>
+              <h1>Seu <em>histórico.</em></h1>
+              <p>
+                Jogos cujo horário de início já passou. Lance e confirme os
+                resultados para atualizar os níveis.
+              </p>
+            </div>
+          </div>
+          <div class="match-grid" data-history-grid>
+            <p class="profile-data-note">Carregando histórico…</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="app-view" data-player-view="ranking">
+        <div class="app-container narrow-app">
+          <div class="app-heading">
+            <div>
+              <p class="eyebrow dark">Quem está no topo</p>
+              <h1>Ranking de <em>nível.</em></h1>
+              <p>Jogadores ordenados pelo nível numérico.</p>
+            </div>
+          </div>
+          <div class="ranking-me hidden" data-ranking-me aria-live="polite"></div>
+          <div class="ranking-groups" data-ranking-list>
+            <p class="profile-data-note">Carregando ranking…</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="app-view" data-player-view="profile">
+        <div class="app-container narrow-app">
+          <div class="profile-header">
+            <div class="large-avatar" data-user-initials>—</div>
+            <div>
+              <p class="eyebrow dark">Perfil do jogador</p>
+              <h1 data-user-name>Carregando</h1>
+              <p>
+                <span data-user-city data-profile-city>—</span> · Membro do
+                Quadrafy
+              </p>
+            </div>
+            <button
+              class="button button-outline"
+              type="button"
+              data-edit-profile
+            >
+              Editar perfil
+            </button>
+          </div>
+          <div class="profile-layout" data-profile-content>
+            <section class="level-card" data-profile-level-card>
+              <div class="panel-heading">
+                <div>
+                  <p class="micro-label">Nível Quadrafy</p>
+                  <h2>Seu nível de jogo</h2>
+                </div>
+                <button type="button" data-level-test-open>
+                  Refazer teste de nível
+                </button>
+              </div>
+              <div class="level-score">
+                <strong data-profile-score>—</strong
+                ><span data-profile-level>—</span>
+              </div>
+              <div
+                class="confidence-block confidence-featured hidden"
+                data-profile-confidence-block
+              >
+                <div class="confidence-head">
+                  <p class="micro-label">Fiabilidade</p>
+                  <strong
+                    class="confidence-value"
+                    data-profile-confidence-value
+                    >—</strong
+                  >
+                </div>
+                <div class="confidence-bar confidence-bar-large" aria-hidden="true">
+                  <span data-profile-confidence-fill></span>
+                </div>
+                <p
+                  class="profile-data-note"
+                  data-profile-confidence-note
+                  aria-live="polite"
+                ></p>
+                <button
+                  class="button button-outline"
+                  type="button"
+                  data-confidence-progress-open
+                >
+                  Ver progressão da fiabilidade
+                </button>
+              </div>
+              <p class="profile-data-note" data-profile-level-note>
+                Seu nível aparecerá aqui quando estiver disponível.
+              </p>
+              <button
+                class="button button-outline"
+                type="button"
+                data-level-info-open
+              >
+                Entenda seu nível
+              </button>
+            </section>
+            <section
+              class="player-stats"
+              aria-label="Estatísticas do jogador"
+            >
+              <div>
+                <strong data-profile-matches>—</strong><span>Partidas</span>
+              </div>
+              <div>
+                <strong data-profile-wins>—</strong><span>Vitórias</span>
+              </div>
+              <div>
+                <strong data-profile-winrate>—</strong
+                ><span>Aproveitamento</span>
+              </div>
+              <div>
+                <strong data-profile-clubs>—</strong><span>Clubes</span>
+              </div>
+            </section>
+            <section
+              class="info-card stats-card"
+              aria-labelledby="profile-stats-title"
+            >
+              <div class="panel-heading">
+                <div>
+                  <p class="micro-label">Desempenho</p>
+                  <h2 id="profile-stats-title">Estatísticas de jogo</h2>
+                </div>
+                <span
+                  class="win-streak hidden"
+                  data-profile-streak
+                  aria-live="polite"
+                ></span>
+              </div>
+              <div class="winrate-segments" data-profile-winrate-segments>
+                <p class="profile-data-note">
+                  Jogue partidas com resultado confirmado para ver seu
+                  aproveitamento por força de adversário.
+                </p>
+              </div>
+              <div class="level-evolution">
+                <p class="micro-label">Evolução do nível</p>
+                <div
+                  class="finance-chart level-chart"
+                  data-level-history-chart
+                >
+                  <p class="profile-data-note">
+                    Seu gráfico aparecerá aqui após o teste de nível e as
+                    primeiras partidas confirmadas.
+                  </p>
+                </div>
+              </div>
+            </section>
+            <section class="info-card">
+              <div class="panel-heading">
+                <div>
+                  <p class="micro-label">Preferências</p>
+                  <h2>Informações de jogo</h2>
+                </div>
+                <button type="button" data-edit-profile>Editar</button>
+              </div>
+              <dl>
+                <div>
+                  <dt>Gênero</dt>
+                  <dd data-profile-gender-value>—</dd>
+                </div>
+                <div>
+                  <dt>Lado preferido</dt>
+                  <dd data-profile-preferred-side>—</dd>
+                </div>
+                <div>
+                  <dt>Mão dominante</dt>
+                  <dd data-profile-dominant-hand>—</dd>
+                </div>
+                <div>
+                  <dt>Disponibilidade</dt>
+                  <dd data-profile-availability>—</dd>
+                </div>
+                <div>
+                  <dt>Estilo</dt>
+                  <dd data-profile-play-style>—</dd>
+                </div>
+              </dl>
+              <div class="preferred-times-summary">
+                <p class="micro-label">Horários de preferência</p>
+                <div data-profile-preferred-times>
+                  <p class="profile-data-note">
+                    Nenhum horário de preferência definido.
+                  </p>
+                </div>
+              </div>
+              <p class="profile-data-note" data-profile-info-empty>
+                Complete seu perfil para encontrar partidas mais compatíveis.
+              </p>
+            </section>
+            <section
+              class="info-card connections-card"
+              aria-labelledby="profile-connections-title"
+            >
+              <div class="panel-heading">
+                <div>
+                  <p class="micro-label">Sua rede de jogo</p>
+                  <h2 id="profile-connections-title">Parceiros e rivais</h2>
+                </div>
+              </div>
+              <div class="connections-columns">
+                <div>
+                  <p class="micro-label">Parceiros frequentes</p>
+                  <div data-profile-partners-list>
+                    <p class="profile-data-note">
+                      Jogue partidas confirmadas para ver seus parceiros.
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <p class="micro-label">Rivais recorrentes</p>
+                  <div data-profile-rivals-list>
+                    <p class="profile-data-note">
+                      Seus rivais mais frequentes aparecerão aqui.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="modal-backdrop" data-booking-modal aria-hidden="true">
+      <div
+        class="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="booking-title"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar"
+        >
+          ×
+        </button>
+        <p class="eyebrow dark">Último passo</p>
+        <h2 id="booking-title">Confirme sua reserva.</h2>
+        <div class="modal-booking-info">
+          <div>
+            <small data-modal-club>Clube</small
+            ><strong data-modal-court>Quadra</strong>
+          </div>
+          <div>
+            <small data-modal-date>—</small><strong data-modal-time>—</strong>
+          </div>
+        </div>
+        <fieldset class="booking-visibility" data-booking-visibility>
+          <legend>Como será o jogo?</legend>
+          <div class="visibility-options">
+            <label class="active">
+              <input type="radio" name="visibility" value="private" checked />
+              <span>
+                <strong>Jogo privado</strong>
+                <small>Sua reserva fica visível apenas para você.</small>
+              </span>
+              <i></i>
+            </label>
+            <label>
+              <input type="radio" name="visibility" value="open" />
+              <span>
+                <strong>Jogo em aberto</strong>
+                <small>Outros jogadores podem encontrar e entrar.</small>
+              </span>
+              <i></i>
+            </label>
+          </div>
+        </fieldset>
+        <div class="open-match-fields hidden" data-open-match-fields>
+          <label class="input-group">
+            <span>Categoria</span>
+            <select name="genderCategory" data-booking-gender-category>
+              <option value="all" selected>Todos os jogadores</option>
+              <option value="women_only">Apenas Mulheres</option>
+              <option value="men_only">Apenas Homens</option>
+              <option value="mixed">Misto (1 homem + 1 mulher por dupla)</option>
+            </select>
+          </label>
+          <label class="input-group">
+            <span
+              >Nível mínimo:
+              <output data-booking-level-min-output>0,50</output></span
+            >
+            <input
+              type="range"
+              name="levelMin"
+              min="0.5"
+              max="7"
+              step="0.01"
+              value="0.5"
+              data-booking-level-min
+              aria-label="Nível mínimo da partida"
+            />
+          </label>
+          <label class="input-group">
+            <span
+              >Nível máximo:
+              <output data-booking-level-max-output>7,00</output></span
+            >
+            <input
+              type="range"
+              name="levelMax"
+              min="0.5"
+              max="7"
+              step="0.01"
+              value="7"
+              data-booking-level-max
+              aria-label="Nível máximo da partida"
+            />
+          </label>
+          <p class="secure-note">
+            A partida será publicada com três vagas, completando quatro
+            jogadores.
+          </p>
+        </div>
+        <fieldset class="payment-options">
+          <legend>Como você quer pagar?</legend>
+          <label class="active"
+            ><input type="radio" name="payment" value="pix" checked /><span
+              data-icon="pix"
+            ></span
+            ><b>Pix<small>Aprovação imediata</small></b
+            ><i></i></label
+          ><label
+            ><input type="radio" name="payment" value="card" /><span
+              data-icon="card"
+            ></span
+            ><b>Cartão<small>Crédito ou débito</small></b
+            ><i></i></label
+          ><label
+            ><input type="radio" name="payment" value="venue" /><span
+              data-icon="wallet"
+            ></span
+            ><b>Pagar na hora<small>Direto no clube</small></b
+            ><i></i
+          ></label>
+        </fieldset>
+        <div class="modal-total">
+          <span>Total</span><strong data-modal-price>—</strong>
+        </div>
+        <button
+          class="button button-primary button-block shine"
+          type="button"
+          data-confirm-booking
+        >
+          Confirmar reserva
+        </button>
+        <p class="secure-note">
+          Ambiente seguro. Cancelamento grátis até 6h antes.
+        </p>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" data-match-detail-modal aria-hidden="true">
+      <div
+        class="modal-card match-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Detalhes do jogo"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar"
+        >
+          ×
+        </button>
+        <div data-match-detail-content></div>
+        <button
+          class="button button-primary button-block shine hidden"
+          type="button"
+          data-match-detail-join
+        >
+          Entrar no jogo
+        </button>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" data-player-profile-modal aria-hidden="true">
+      <div
+        class="modal-card public-player-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="public-player-title"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar perfil do jogador"
+        >
+          ×
+        </button>
+        <div data-public-player-content>
+          <p class="profile-data-note">Carregando perfil…</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" data-match-result-modal aria-hidden="true">
+      <div
+        class="modal-card court-form-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="match-result-title"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar lançamento de resultado"
+        >
+          ×
+        </button>
+        <p class="eyebrow dark">Fechar jogo</p>
+        <h2 id="match-result-title">Lançar resultado.</h2>
+        <p class="profile-data-note">
+          Informe os games de cada dupla nos 3 sets. O resultado fica pendente
+          até um jogador da dupla adversária confirmar.
+        </p>
+        <form data-match-result-form>
+          <div class="result-sets-grid">
+            <div class="result-set-row">
+              <span class="result-set-label">Set 1</span>
+              <label class="input-group">
+                <span>Dupla 1</span>
+                <input type="number" name="set1_team1" min="0" max="7" step="1" inputmode="numeric" required />
+              </label>
+              <span class="result-set-x" aria-hidden="true">×</span>
+              <label class="input-group">
+                <span>Dupla 2</span>
+                <input type="number" name="set1_team2" min="0" max="7" step="1" inputmode="numeric" required />
+              </label>
+            </div>
+            <div class="result-set-row">
+              <span class="result-set-label">Set 2</span>
+              <label class="input-group">
+                <span>Dupla 1</span>
+                <input type="number" name="set2_team1" min="0" max="7" step="1" inputmode="numeric" required />
+              </label>
+              <span class="result-set-x" aria-hidden="true">×</span>
+              <label class="input-group">
+                <span>Dupla 2</span>
+                <input type="number" name="set2_team2" min="0" max="7" step="1" inputmode="numeric" required />
+              </label>
+            </div>
+            <div class="result-set-row">
+              <span class="result-set-label">Set 3</span>
+              <label class="input-group">
+                <span>Dupla 1</span>
+                <input type="number" name="set3_team1" min="0" max="7" step="1" inputmode="numeric" required />
+              </label>
+              <span class="result-set-x" aria-hidden="true">×</span>
+              <label class="input-group">
+                <span>Dupla 2</span>
+                <input type="number" name="set3_team2" min="0" max="7" step="1" inputmode="numeric" required />
+              </label>
+            </div>
+          </div>
+          <p
+            class="profile-data-note"
+            data-result-winner-preview
+            aria-live="polite"
+          >
+            Preencha os 3 sets (games de 0 a 7, sem empate) para habilitar o
+            envio.
+          </p>
+          <button
+            class="button button-primary button-block shine"
+            type="submit"
+            data-result-submit
+            disabled
+          >
+            Enviar resultado
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div
+      class="modal-backdrop"
+      data-confidence-progress-modal
+      aria-hidden="true"
+    >
+      <div
+        class="modal-card level-info-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confidence-progress-title"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar progressão da fiabilidade"
+        >
+          ×
+        </button>
+        <p class="eyebrow dark">Fiabilidade</p>
+        <h2 id="confidence-progress-title">Sua fiabilidade ao longo do tempo.</h2>
+        <div
+          class="finance-chart level-chart"
+          data-confidence-history-chart
+        >
+          <p class="profile-data-note">
+            Seu gráfico aparecerá aqui após o teste de nível e as primeiras
+            partidas confirmadas.
+          </p>
+        </div>
+        <div class="confidence-scale-block">
+          <p class="micro-label">Onde você está na escala</p>
+          <div class="confidence-scale" data-confidence-scale>
+            <div class="confidence-scale-track" aria-hidden="true">
+              <span class="scale-zone zone-low"></span>
+              <span class="scale-zone zone-mid"></span>
+              <span class="scale-zone zone-high"></span>
+              <span class="scale-marker" data-confidence-marker></span>
+            </div>
+            <div class="confidence-scale-labels" aria-hidden="true">
+              <span>0%</span><span>50%</span><span>70%</span><span>100%</span>
+            </div>
+            <p
+              class="profile-data-note"
+              data-confidence-scale-note
+              aria-live="polite"
+            ></p>
+          </div>
+        </div>
+        <div class="level-info-phi">
+          <p class="micro-label">Como a fiabilidade funciona</p>
+          <p>
+            A fiabilidade representa o grau de confiança do sistema no seu
+            nível calculado. Ela cresce a cada partida confirmada — mais
+            rápido no começo e mais devagar com o tempo. Na prática: com
+            fiabilidade baixa (abaixo de 50%), seu nível oscila bastante a
+            cada resultado, porque o sistema ainda está te conhecendo; entre
+            50% e 70%, as variações são moderadas; acima de 70%, seu nível
+            está consolidado e uma vitória ou derrota isolada muda pouco a
+            sua classificação.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" data-level-info-modal aria-hidden="true">
+      <div
+        class="modal-card level-info-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="level-info-title"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar explicação de nível"
+        >
+          ×
+        </button>
+        <p class="eyebrow dark">Nível Quadrafy</p>
+        <h2 id="level-info-title">Entenda seu nível.</h2>
+        <div data-level-info-content></div>
+        <div class="level-info-phi">
+          <p class="micro-label">O que é a Fiabilidade?</p>
+          <p>
+            A Fiabilidade (0% a 100%) mostra o quanto o sistema já conhece o
+            seu jogo. Todo jogador começa com 35% depois do teste inicial.
+            Abaixo de 50%, seu nível oscila rapidamente a cada partida — o
+            sistema ainda está calibrando. Entre 50% e 70%, as variações são
+            moderadas. Acima de 70%, seu nível está consolidado: vitórias e
+            derrotas isoladas movem apenas pequenas frações. A fiabilidade
+            cresce a cada partida confirmada, um pouco menos a cada jogo, até
+            se aproximar de 100% por volta de 50 partidas.
+          </p>
+        </div>
+        <div class="level-explainer">
+          <button
+            class="button button-outline button-block"
+            type="button"
+            data-level-explain-open
+          >
+            Ver como seu último resultado foi calculado
+          </button>
+          <div
+            class="level-explainer-content hidden"
+            data-level-explain-content
+            aria-live="polite"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" data-confirm-modal aria-hidden="true">
+      <div
+        class="modal-card court-delete-modal"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-modal-title"
+        aria-describedby="confirm-modal-message"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar confirmação"
+        >
+          ×
+        </button>
+        <p class="eyebrow dark" data-confirm-eyebrow>Confirmação</p>
+        <h2 id="confirm-modal-title" data-confirm-title>Tem certeza?</h2>
+        <p id="confirm-modal-message" data-confirm-message></p>
+        <div class="court-delete-actions">
+          <button
+            class="button button-outline"
+            type="button"
+            data-confirm-cancel
+          >
+            Cancelar
+          </button>
+          <button
+            class="button button-danger"
+            type="button"
+            data-confirm-accept
+          >
+            Confirmar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" data-booking-detail-modal aria-hidden="true">
+      <div
+        class="modal-card match-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="booking-detail-title"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar detalhes da reserva"
+        >
+          ×
+        </button>
+        <p class="eyebrow dark">Detalhes da reserva</p>
+        <h2 id="booking-detail-title" data-booking-detail-title>Reserva</h2>
+        <div class="match-detail-summary" data-booking-detail-summary></div>
+        <form data-booking-detail-form>
+          <fieldset class="booking-visibility" data-booking-detail-visibility>
+            <legend>Visibilidade da partida</legend>
+            <div class="visibility-options">
+              <label>
+                <input
+                  type="radio"
+                  name="bookingDetailVisibility"
+                  value="private"
+                  aria-describedby="booking-private-visibility-note"
+                />
+                <span>
+                  <strong>Jogo privado</strong>
+                  <small
+                    id="booking-private-visibility-note"
+                    data-booking-private-note
+                    >Visível apenas na sua agenda.</small
+                  >
+                </span>
+                <i></i>
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="bookingDetailVisibility"
+                  value="open"
+                />
+                <span>
+                  <strong>Jogo em aberto</strong>
+                  <small>Outros jogadores poderão entrar.</small>
+                </span>
+                <i></i>
+              </label>
+            </div>
+          </fieldset>
+          <div class="open-match-fields hidden" data-booking-detail-open-fields>
+            <label class="input-group">
+              <span
+                >Nível mínimo:
+                <output data-booking-detail-level-min-output>0,50</output></span
+              >
+              <input
+                type="range"
+                min="0.5"
+                max="7"
+                step="0.01"
+                value="0.5"
+                data-booking-detail-level-min
+                aria-label="Nível mínimo da reserva"
+              />
+            </label>
+            <label class="input-group">
+              <span
+                >Nível máximo:
+                <output data-booking-detail-level-max-output>7,00</output></span
+              >
+              <input
+                type="range"
+                min="0.5"
+                max="7"
+                step="0.01"
+                value="7"
+                data-booking-detail-level-max
+                aria-label="Nível máximo da reserva"
+              />
+            </label>
+          </div>
+          <p
+            class="profile-data-note hidden"
+            data-booking-detail-warning
+            role="alert"
+          ></p>
+          <button
+            class="button button-primary button-block shine"
+            type="submit"
+            data-booking-detail-save
+          >
+            Salvar alterações
+          </button>
+          <button
+            class="button button-outline button-block"
+            type="button"
+            data-booking-cancel
+          >
+            Cancelar reserva
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" data-profile-edit-modal aria-hidden="true">
+      <div
+        class="modal-card court-form-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="profile-edit-title"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar edição do perfil"
+        >
+          ×
+        </button>
+        <p class="eyebrow dark">Seu perfil</p>
+        <h2 id="profile-edit-title">Editar informações.</h2>
+        <form data-profile-edit-form>
+          <div class="input-grid">
+            <label class="input-group">
+              <span>Nome</span>
+              <input
+                type="text"
+                name="firstName"
+                maxlength="60"
+                autocomplete="given-name"
+                required
+              />
+            </label>
+            <label class="input-group">
+              <span>Sobrenome</span>
+              <input
+                type="text"
+                name="lastName"
+                maxlength="80"
+                autocomplete="family-name"
+                required
+              />
+            </label>
+          </div>
+          <label class="input-group">
+            <span>Cidade</span>
+            <input
+              type="text"
+              name="city"
+              maxlength="100"
+              autocomplete="address-level2"
+              required
+            />
+          </label>
+          <div class="input-grid">
+            <label class="input-group">
+              <span>Gênero</span>
+              <select name="gender" data-profile-gender>
+                <option value="">Não informado</option>
+                <option value="female">Feminino</option>
+                <option value="male">Masculino</option>
+                <option value="unspecified">Prefiro não informar</option>
+              </select>
+            </label>
+            <label class="input-group">
+              <span>Lado preferido</span>
+              <select name="preferredSide">
+                <option value="">Não informado</option>
+                <option value="drive">Drive</option>
+                <option value="reves">Revés</option>
+                <option value="indiferente">Indiferente</option>
+              </select>
+            </label>
+            <label class="input-group">
+              <span>Mão dominante</span>
+              <select name="dominantHand">
+                <option value="">Não informada</option>
+                <option value="destra">Destra</option>
+                <option value="canhota">Canhota</option>
+                <option value="ambidestra">Ambidestra</option>
+              </select>
+            </label>
+          </div>
+          <label class="input-group">
+            <span>Disponibilidade</span>
+            <input
+              type="text"
+              name="availability"
+              maxlength="160"
+              placeholder="Ex.: noites durante a semana"
+            />
+          </label>
+          <label class="input-group">
+            <span>Estilo de jogo</span>
+            <select name="playStyle">
+              <option value="">Não informado</option>
+              <option value="competitivo">Competitivo</option>
+              <option value="social">Social</option>
+              <option value="misto">Misto</option>
+            </select>
+          </label>
+          <fieldset class="preferred-times-fieldset">
+            <legend>Horários de preferência</legend>
+            <div
+              class="preferred-times-grid"
+              data-preferred-times-grid
+              aria-label="Selecione dias e períodos preferidos"
+            ></div>
+          </fieldset>
+          <div class="profile-photo-upload">
+            <div class="profile-photo-preview" aria-live="polite">
+              <img
+                data-player-photo-preview
+                alt="Prévia da foto de perfil"
+                hidden
+              />
+              <span data-player-photo-placeholder>QF</span>
+            </div>
+            <div class="profile-photo-upload-copy">
+              <strong>Foto de perfil</strong>
+              <span>JPEG, PNG ou WebP, com até 5 MB.</span>
+              <label class="button button-outline profile-photo-button">
+                Escolher imagem
+                <input
+                  type="file"
+                  name="photo"
+                  accept="image/jpeg,image/png,image/webp"
+                  data-player-photo-input
+                />
+              </label>
+            </div>
+          </div>
+          <button
+            class="button button-primary button-block shine"
+            type="submit"
+            data-profile-save
+          >
+            Salvar perfil
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" data-level-test-modal aria-hidden="true">
+      <div
+        class="modal-card match-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="level-test-title"
+        aria-describedby="level-test-description"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-level-test-close
+          data-modal-close
+          aria-label="Fechar teste de nível"
+        >
+          ×
+        </button>
+        <p class="eyebrow dark">Nivelamento Quadrafy</p>
+        <h2 id="level-test-title">Vamos encontrar seu nível.</h2>
+        <p id="level-test-description" class="profile-data-note">
+          Responda seis perguntas rápidas. O cálculo é imediato e
+          determinístico — o resultado ajuda a indicar partidas equilibradas.
+        </p>
+        <form data-level-test-form>
+          <label class="input-group">
+            <span>Há quanto tempo você pratica padel?</span>
+            <select name="tempo_pratica" required>
+              <option value="">Selecione</option>
+              <option value="1">Menos de 3 meses (ou nunca joguei)</option>
+              <option value="2">Entre 3 e 12 meses</option>
+              <option value="3">Entre 1 e 3 anos</option>
+              <option value="4">Mais de 3 anos</option>
+            </select>
+          </label>
+          <label class="input-group">
+            <span>Com que frequência você joga por semana?</span>
+            <select name="frequencia_semanal" required>
+              <option value="">Selecione</option>
+              <option value="1">Ainda não jogo toda semana</option>
+              <option value="2">Uma vez por semana</option>
+              <option value="3">Duas ou três vezes por semana</option>
+              <option value="4">Mais de três vezes por semana</option>
+            </select>
+          </label>
+          <label class="input-group">
+            <span>Qual sua experiência em outros esportes de raquete?</span>
+            <select name="experiencia_esportes_raquete" required>
+              <option value="">Selecione</option>
+              <option value="1">Nenhuma</option>
+              <option value="2">Recreativa</option>
+              <option value="3">Frequente</option>
+              <option value="4">Tênis ou squash em alto nível</option>
+            </select>
+          </label>
+          <label class="input-group">
+            <span>Como você avalia seus golpes?</span>
+            <select name="autoavaliacao_golpes" required>
+              <option value="">Selecione</option>
+              <option value="1">Estou aprendendo os golpes básicos</option>
+              <option value="2">Consigo sustentar trocas simples</option>
+              <option value="3">Tenho controle e uso paredes</option>
+              <option value="4">Domino golpes, paredes e estratégia</option>
+            </select>
+          </label>
+          <label class="input-group">
+            <span>Qual sua experiência em competições?</span>
+            <select name="experiencia_competicoes" required>
+              <option value="">Selecione</option>
+              <option value="1">Nunca competi</option>
+              <option value="2">Já joguei torneios internos ou amistosos</option>
+              <option value="3">Compito em torneios amadores regularmente</option>
+              <option value="4">Compito em nível federado/avançado</option>
+            </select>
+          </label>
+          <label class="input-group">
+            <span>Como você avalia sua tática e posicionamento?</span>
+            <select name="tatica_posicionamento" required>
+              <option value="">Selecione</option>
+              <option value="1">Ainda me perco no posicionamento</option>
+              <option value="2">Sei as posições básicas de ataque e defesa</option>
+              <option value="3">Leio o jogo e troco de posição com o parceiro</option>
+              <option value="4">Domino transições, lob e jogo de rede</option>
+            </select>
+          </label>
+          <button
+            class="button button-primary button-block shine"
+            type="submit"
+            data-level-test-submit
+          >
+            Calcular meu nível
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" data-generic-modal aria-hidden="true">
+      <div class="modal-card small-modal" role="dialog" aria-modal="true">
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar"
+        >
+          ×
+        </button>
+        <div data-generic-content></div>
+      </div>
+    </div>
+    <div class="toast" role="status" aria-live="polite" data-toast></div>
+    <script src="assets/js/app.js" defer></script>
+    <script src="assets/js/charts.js" defer></script>
+    <script src="assets/js/dashboard-player.js" defer></script>
+  </body>
+</html>

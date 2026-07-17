@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="pt-BR" data-page="landing">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Quadrafy conecta jogadores de padel às melhores arenas do Brasil."
+    />
+    <title>Quadrafy — Seu próximo jogo começa aqui</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Montserrat:wght@400;500;600;700&family=Poppins:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-nav" data-site-nav>
+      <a
+        class="brand brand--image"
+        href="index.html"
+        aria-label="Quadrafy, início"
+      >
+        <span class="brand-logo-surface brand-logo-surface--nav">
+          <img
+            class="brand-logo brand-logo--full brand-logo--nav"
+            src="assets/images/quadrafy-logo.png"
+            width="1600"
+            height="485"
+            alt="Quadrafy"
+          />
+        </span>
+      </a>
+      <nav class="marketing-links" aria-label="Navegação principal">
+        <a href="#como-funciona">Como funciona</a>
+        <a href="#para-clubes">Para clubes</a>
+      </nav>
+      <div class="nav-actions">
+        <a class="button button-ghost nav-login" href="login.html">Entrar</a>
+        <a
+          class="button button-primary button-small"
+          href="login.html?tab=signup"
+          >Criar conta</a
+        >
+        <button
+          class="menu-toggle"
+          type="button"
+          aria-label="Abrir menu"
+          aria-expanded="false"
+          data-menu-toggle
+        >
+          <span></span><span></span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-grid"></div>
+        <div class="hero-ball" aria-hidden="true"><span></span></div>
+        <div class="container hero-layout">
+          <div class="hero-copy">
+            <p class="eyebrow hero-reveal">Padel, do seu jeito</p>
+            <h1 class="hero-title" aria-label="Seu próximo jogo começa aqui">
+              <span class="hero-line"
+                ><span class="hero-word">Seu</span>
+                <span class="hero-word">próximo</span>
+                <span class="hero-word italic">jogo</span></span
+              >
+              <span class="hero-line"
+                ><span class="hero-word">começa</span>
+                <span class="hero-word">aqui.</span></span
+              >
+            </h1>
+            <p class="hero-subtitle hero-reveal">
+              Encontre quadras, reserve horários e entre em partidas com
+              jogadores do seu nível. Tudo em um só clube.
+            </p>
+            <div class="hero-actions hero-reveal">
+              <a
+                class="button button-primary button-large shine"
+                href="dashboard-player.html"
+                >Buscar quadras <span aria-hidden="true">→</span></a
+              >
+              <a
+                class="button button-outline-light button-large"
+                href="dashboard-club.html"
+                >Sou dono de arena</a
+              >
+            </div>
+          </div>
+
+          <aside
+            class="search-card hero-reveal"
+            aria-label="Busca rápida de quadras"
+          >
+            <div class="search-card-head">
+              <div>
+                <span class="micro-label">Busca rápida</span>
+                <h2>Onde vamos jogar?</h2>
+              </div>
+              <span class="live-pill"><i></i> horários ao vivo</span>
+            </div>
+            <div class="search-fields">
+              <label class="field-row">
+                <span class="field-icon" data-icon="pin"></span>
+                <span
+                  ><small>Localização</small
+                  ><input
+                    type="text"
+                    placeholder="Digite sua cidade"
+                    aria-label="Localização"
+                /></span>
+              </label>
+              <div class="field-split">
+                <label class="field-row">
+                  <span class="field-icon" data-icon="calendar"></span>
+                  <span
+                    ><small>Data</small
+                    ><input
+                      type="text"
+                      value=""
+                      data-quick-date
+                      aria-label="Data"
+                      readonly
+                  /></span>
+                </label>
+                <label class="field-row">
+                  <span class="field-icon" data-icon="clock"></span>
+                  <span
+                    ><small>Horário</small
+                    ><input
+                      type="text"
+                      placeholder="Escolha"
+                      aria-label="Horário"
+                  /></span>
+                </label>
+              </div>
+            </div>
+            <a
+              class="button button-primary button-block shine"
+              href="dashboard-player.html"
+              >Ver quadras disponíveis</a
+            >
+            <div class="search-proof">
+              <div class="avatar-stack">
+                <span>LM</span><span>RA</span><span>CT</span>
+              </div>
+              <p><strong>Disponibilidade real</strong> direto das arenas</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section steps-section" id="como-funciona">
+        <div class="container">
+          <div class="section-heading reveal">
+            <div>
+              <p class="eyebrow dark">Simples por natureza</p>
+              <h2>Da busca ao <em>smash</em><br />em três movimentos.</h2>
+            </div>
+            <p>Menos tempo organizando. Mais tempo dentro da quadra.</p>
+          </div>
+          <div class="steps-grid">
+            <article class="step-card reveal card-hover">
+              <span class="step-number">01</span>
+              <div class="step-visual map-visual">
+                <span class="map-line"></span><i class="map-pin one"></i
+                ><i class="map-pin two"></i><i class="map-pin three"></i>
+              </div>
+              <h3>Encontre seu clube</h3>
+              <p>
+                Busque por localização, estrutura, preço e avaliações reais.
+              </p>
+            </article>
+            <article class="step-card reveal card-hover">
+              <span class="step-number">02</span>
+              <div class="step-visual schedule-visual">
+                <span>17:00</span><span class="active">18:00</span
+                ><span>19:00</span>
+              </div>
+              <h3>Escolha o horário</h3>
+              <p>Veja a disponibilidade ao vivo e reserve em poucos toques.</p>
+            </article>
+            <article class="step-card reveal card-hover">
+              <span class="step-number">03</span>
+              <div class="step-visual players-visual">
+                <i>AM</i><i>JP</i><i>LG</i><b>+1</b>
+              </div>
+              <h3>Entre no jogo</h3>
+              <p>Monte sua dupla ou encontre partidas abertas no seu nível.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section club-owner-section" id="para-clubes">
+        <div class="container owner-layout">
+          <div class="owner-copy reveal">
+            <p class="eyebrow light">Para donos de arena</p>
+            <h2>Sua operação,<br /><em>no controle.</em></h2>
+            <p>
+              Centralize quadras, horários e reservas em um painel feito para a
+              rotina do seu clube.
+            </p>
+            <ul class="feature-list">
+              <li><span>01</span> Grade visual em tempo real</li>
+              <li><span>02</span> Indicadores de ocupação e receita</li>
+              <li><span>03</span> Gestão simples de múltiplas arenas</li>
+            </ul>
+            <a
+              class="button button-primary button-large shine"
+              href="dashboard-club.html"
+              >Conhecer o painel <span>→</span></a
+            >
+          </div>
+          <div
+            class="dashboard-mockup reveal"
+            aria-label="Prévia do painel de gestão"
+          >
+            <div class="mock-browser">
+              <i></i><i></i><i></i><span>painel.quadrafy.com.br</span>
+            </div>
+            <div class="mock-body">
+              <aside class="mock-sidebar">
+                <div class="mini-brand"></div>
+                <span class="on"></span><span></span><span></span><span></span>
+              </aside>
+              <div class="mock-content">
+                <div class="mock-title">
+                  <div>
+                    <small>Bom dia, Rafael</small><strong>Visão geral</strong>
+                  </div>
+                  <button>+ Nova reserva</button>
+                </div>
+                <div class="mock-kpis">
+                  <div>
+                    <small>Ocupação hoje</small><strong>0%</strong
+                    ><i class="mock-occupancy-bar"></i>
+                  </div>
+                  <div>
+                    <small>Reservas</small><strong>0</strong
+                    ><em>Em tempo real</em>
+                  </div>
+                  <div><small>Receita do dia</small><strong>R$ 0</strong></div>
+                </div>
+                <div class="mock-schedule">
+                  <div class="schedule-labels">
+                    <span>17:00</span><span>18:00</span><span>19:00</span
+                    ><span>20:00</span>
+                  </div>
+                  <div><b>Quadra 01</b><i></i><i></i><i></i><i></i></div>
+                  <div><b>Quadra 02</b><i></i><i></i><i></i><i></i></div>
+                  <div><b>Quadra 03</b><i></i><i></i><i></i><i></i></div>
+                </div>
+              </div>
+            </div>
+            <div class="floating-kpi">
+              <span class="trend-line"></span>
+              <div>
+                <small>Receita mensal</small><strong>R$ 0</strong
+                ><em>Dados reais</em>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="final-cta">
+        <div class="cta-lines" aria-hidden="true"></div>
+        <div class="container reveal">
+          <p class="eyebrow light">A quadra está pronta</p>
+          <h2>Falta só você<br /><em>entrar no jogo.</em></h2>
+          <div class="cta-actions">
+            <a
+              class="button button-paper button-large"
+              href="login.html?tab=signup"
+              >Criar conta grátis</a
+            ><a class="text-link-light" href="dashboard-player.html"
+              >Explorar clubes <span>→</span></a
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-grid">
+        <div class="footer-brand">
+          <a
+            class="brand brand--image"
+            href="index.html"
+            aria-label="Quadrafy, início"
+          >
+            <span class="brand-logo-surface brand-logo-surface--footer">
+              <img
+                class="brand-logo brand-logo--full brand-logo--footer"
+                src="assets/images/quadrafy-logo.png"
+                width="1600"
+                height="485"
+                alt="Quadrafy"
+              />
+            </span>
+          </a>
+          <p>O ponto de encontro do padel brasileiro.</p>
+        </div>
+        <div>
+          <strong>Plataforma</strong><a href="#como-funciona">Como funciona</a
+          ><a href="dashboard-player.html">Encontrar quadras</a
+          ><a href="dashboard-player.html">Jogos abertos</a>
+        </div>
+        <div>
+          <strong>Clubes</strong><a href="#para-clubes">Para arenas</a
+          ><a href="dashboard-club.html">Painel de gestão</a
+          ><a href="login.html?tab=signup">Cadastrar arena</a>
+        </div>
+        <div>
+          <strong>Empresa</strong><a href="#">Sobre</a><a href="#">Contato</a
+          ><a href="#">Termos e privacidade</a>
+        </div>
+      </div>
+      <div class="container footer-bottom">
+        <span>© 2026 Quadrafy</span><span>Feito para quem vive o jogo.</span>
+      </div>
+    </footer>
+    <script src="assets/js/app.js" defer></script>
+  </body>
+</html>

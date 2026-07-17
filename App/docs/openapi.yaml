@@ -1,0 +1,1818 @@
+openapi: 3.1.0
+info:
+  title: Quadrafy API
+  version: 1.5.0
+  description: >-
+    API interna do frontend multipágina da Quadrafy. Todas as operações aceitam
+    X-Request-Id opcional de até 100 caracteres e devolvem o identificador usado.
+servers:
+  - url: http://localhost:4173/api/v1
+security: []
+paths:
+  /health:
+    get:
+      summary: Verifica a disponibilidade do serviço
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+  /auth/register:
+    post:
+      summary: Cria uma conta e inicia uma sessão
+      description: Limitado a 12 tentativas por hora por endereço IP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/PlayerRegistration"
+                - $ref: "#/components/schemas/ClubRegistration"
+              discriminator: { propertyName: role }
+      responses:
+        "201": { $ref: "#/components/responses/AuthSuccess" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /auth/login:
+    post:
+      summary: Autentica uma conta
+      description: Limitado a 30 tentativas por IP e 8 por conta a cada 15 minutos.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/AuthSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /auth/me:
+    get:
+      summary: Retorna a conta da sessão atual
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/AuthSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /auth/logout:
+    post:
+      summary: Revoga a sessão atual
+      security: [{ sessionCookie: [] }]
+      responses:
+        "204":
+          description: Sessão encerrada
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+  /uploads/image:
+    post:
+      summary: Envia uma imagem de jogador, clube ou quadra
+      description: >-
+        Aceita JPEG, PNG ou WebP de até 5 MB em base64. Valida a assinatura
+        binária, a propriedade do recurso e persiste o arquivo localmente.
+        Limite de 30 envios por usuário a cada hora.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ImageUploadInput" }
+      responses:
+        "201": { $ref: "#/components/responses/ImageUploadSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /player/dashboard:
+    get:
+      summary: Identidade e perfil do jogador
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /player/profile:
+    get:
+      summary: Retorna o perfil completo do jogador autenticado
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/PlayerProfileReadSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    patch:
+      summary: Atualiza parcialmente o perfil do jogador
+      description: Aceita um ou mais campos editáveis e preserva os demais dados do perfil.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlayerProfileUpdate" }
+      responses:
+        "200": { $ref: "#/components/responses/PlayerProfileSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /players/{playerId}/profile:
+    get:
+      summary: Retorna o perfil público seguro de um jogador
+      description: Nunca expõe e-mail, credenciais ou campos privados do perfil.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { $ref: "#/components/responses/PublicPlayerProfileSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /player/level-test:
+    post:
+      summary: Avalia e persiste o nível inicial do jogador
+      description: >-
+        Usa a Anthropic quando configurada. Se a chave estiver ausente ou o provedor
+        falhar, retorna o cálculo local determinístico com engine.usedFallback=true.
+        Limite de seis avaliações por jogador a cada hora.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LevelTestInput" }
+      responses:
+        "200": { $ref: "#/components/responses/LevelTestSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /player/bookings:
+    get:
+      summary: Lista reservas criadas ou participadas pelo jogador
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Cria uma reserva privada ou um jogo aberto
+      description: >-
+        Aceita horários até 90 dias no futuro. Cada jogador pode manter no máximo
+        oito reservas futuras confirmadas como criador e fazer 20 tentativas de
+        criação por hora. Jogos abertos exigem teste e faixa de nível elegível.
+      security: [{ sessionCookie: [] }]
+      x-error-codes:
+        - booking_horizon_exceeded
+        - active_booking_limit_reached
+        - level_assessment_required
+        - level_not_eligible
+        - invalid_slot
+        - booking_conflict
+        - rate_limited
+      parameters:
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BookingInput" }
+      responses:
+        "201": { $ref: "#/components/responses/BookingSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /player/bookings/{bookingId}:
+    parameters:
+      - $ref: "#/components/parameters/BookingId"
+    get:
+      summary: Retorna o detalhe de uma reserva do jogador
+      description: O criador e os participantes confirmados podem consultar o detalhe.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/BookingSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Altera a visibilidade ou cancela uma reserva
+      description: >-
+        Somente o criador pode alterar. Uma reserva aberta não pode voltar a privada
+        depois que outro jogador entrou. O cancelamento exige no mínimo seis horas de
+        antecedência em relação ao início. Cancelar uma reserva paga define
+        refundStatus como pending.
+      security: [{ sessionCookie: [] }]
+      x-error-codes:
+        - cancellation_window_closed
+        - booking_has_participants
+        - booking_unavailable
+        - level_assessment_required
+        - level_not_eligible
+      parameters:
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BookingUpdate" }
+      responses:
+        "200": { $ref: "#/components/responses/BookingSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /club/dashboard:
+    get:
+      summary: Cria a arena no primeiro acesso e retorna o painel do clube
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /club/profile:
+    patch:
+      summary: Atualiza o perfil público da arena autenticada
+      description: >-
+        Substitui nome, descrição, telefone, endereço e imagem de capa do clube,
+        sincroniza o nome da arena no perfil do gestor e registra auditoria.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClubProfileInput" }
+      responses:
+        "200": { $ref: "#/components/responses/ClubProfileSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /club/schedule:
+    get:
+      summary: Retorna a grade consolidada diária ou semanal do clube
+      description: >-
+        Combina reservas, recorrências e quadras inativas. No período day, devolve
+        a data solicitada; no período week, devolve sete grades consecutivas a
+        partir da data informada.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: date
+          in: query
+          description: Data inicial real entre 2020-01-01 e 2100-12-31 no fuso de São Paulo. Quando omitida, usa a data atual.
+          schema: { type: string, format: date }
+        - name: period
+          in: query
+          description: Visualização diária por padrão ou intervalo de sete dias.
+          schema: { enum: [day, week], default: day }
+      responses:
+        "200": { $ref: "#/components/responses/ScheduleSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /club/courts:
+    get:
+      summary: Lista quadras da conta de clube
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      summary: Cadastra uma quadra na arena autenticada
+      description: O contrato canônico usa openTime e closeTime em intervalos de 30 minutos; slotDuration aceita 60 ou 90 e assume 90 quando omitido.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CourtInput" }
+      responses:
+        "201": { $ref: "#/components/responses/CourtSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /club/courts/{courtId}/recurring-bookings:
+    post:
+      summary: Cria uma reserva fixa semanal ou mensal
+      description: >-
+        O horário precisa ser um slot válido de uma quadra ativa pertencente ao clube.
+        A criação é serializada com reservas avulsas, rejeita ocorrências ocupadas por
+        reservas avulsas confirmadas e recorrências que possam ocupar o mesmo slot,
+        inclusive entre frequências semanal e mensal, e permite até 120 tentativas
+        por hora por gestor.
+      security: [{ sessionCookie: [] }]
+      x-error-codes:
+        - recurring_booking_conflict
+        - invalid_slot
+        - rate_limited
+      parameters:
+        - $ref: "#/components/parameters/CourtId"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecurringBookingInput" }
+      responses:
+        "201": { $ref: "#/components/responses/RecurringBookingSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /club/recurring-bookings/{recurringBookingId}:
+    patch:
+      summary: Substitui os dados de uma reserva fixa
+      description: >-
+        Exige courtId, clientName, startTime e recurrence. Permite mover a reserva
+        para outra quadra ativa do mesmo clube e valida novamente o slot, reservas
+        avulsas confirmadas e recorrências conflitantes. Preserva id e createdAt,
+        atualiza updatedAt e registra os estados anterior e novo na auditoria.
+      security: [{ sessionCookie: [] }]
+      x-error-codes:
+        - recurring_booking_conflict
+        - invalid_slot
+        - rate_limited
+      parameters:
+        - $ref: "#/components/parameters/RecurringBookingId"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecurringBookingUpdate" }
+      responses:
+        "200": { $ref: "#/components/responses/RecurringBookingSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    delete:
+      summary: Exclui uma reserva fixa
+      description: Cria um tombstone com deletedAt/deletedBy e libera os slots futuros correspondentes.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/RecurringBookingId"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "204":
+          description: Reserva fixa removida das consultas ativas
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /club/courts/{courtId}:
+    patch:
+      summary: Atualiza os dados de uma quadra da arena autenticada
+      description: >-
+        Aceita a edição completa pelo contrato CourtInput. O corpo legado contendo
+        somente active continua disponível para compatibilidade.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CourtId"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CourtUpdate" }
+      responses:
+        "200": { $ref: "#/components/responses/CourtSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      summary: Exclui uma quadra após confirmação explícita
+      description: >-
+        Exige confirm=true. Antes da remoção física, cancela reservas futuras
+        confirmadas vinculadas à quadra e registra a quantidade na auditoria.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CourtId"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: confirm
+          in: query
+          required: true
+          schema: { type: boolean, const: true }
+      responses:
+        "204":
+          description: Quadra excluída e reservas futuras afetadas canceladas
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /club/courts/{courtId}/deletion-impact:
+    get:
+      summary: Conta reservas futuras que serão afetadas pela exclusão
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CourtId"
+      responses:
+        "200": { $ref: "#/components/responses/CourtDeletionImpactSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /club/bookings:
+    get:
+      summary: Lista reservas das quadras do clube
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /club/bookings/{bookingId}/payment:
+    patch:
+      summary: Confirma ou reabre o pagamento de uma reserva do clube
+      description: Registra auditoria com estado anterior/novo e rejeita reservas canceladas.
+      security: [{ sessionCookie: [] }]
+      x-error-codes: [booking_cancelled]
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { enum: [paid, pending] }
+      responses:
+        "200": { $ref: "#/components/responses/BookingSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /club/finance:
+    get:
+      summary: Agrega receita, reservas, ocupação e pagamentos por período
+      description: >-
+        Quando period é informado, seu intervalo prevalece sobre from e to.
+        Datas personalizadas devem ser enviadas em par e em ordem crescente.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: period
+          in: query
+          schema: { enum: [day, week, month] }
+          description: Dia atual, últimos sete dias ou mês atual no fuso de São Paulo.
+        - name: courtId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200": { $ref: "#/components/responses/FinanceSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /clubs:
+    get:
+      summary: Lista arenas públicas que possuem quadras ativas
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+  /clubs/{clubId}:
+    get:
+      summary: Detalha uma arena, suas quadras e disponibilidade
+      description: A disponibilidade considera reservas confirmadas e recorrências semanais ou mensais.
+      parameters:
+        - $ref: "#/components/parameters/ClubId"
+        - name: date
+          in: query
+          description: Data real entre 2020-01-01 e 2100-12-31.
+          schema: { type: string, format: date }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /matches:
+    get:
+      summary: Lista reservas públicas futuras
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/MatchListSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /matches/{matchId}:
+    get:
+      summary: Detalha um jogo aberto e seus participantes
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/MatchId"
+      responses:
+        "200": { $ref: "#/components/responses/MatchSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /matches/{matchId}/join:
+    post:
+      summary: Inclui o jogador autenticado em uma posição livre
+      description: >-
+        Jogos exigem teste concluído, nível elegível, vaga e horário ainda não
+        iniciado. Um corpo vazio mantém a seleção automática legada.
+      security: [{ sessionCookie: [] }]
+      x-error-codes:
+        - match_not_found
+        - match_not_open
+        - match_unavailable
+        - match_started
+        - already_joined
+        - match_full
+        - level_assessment_required
+        - level_not_eligible
+      parameters:
+        - $ref: "#/components/parameters/MatchId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MatchJoinInput" }
+      responses:
+        "200": { $ref: "#/components/responses/MatchSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /matches/{matchId}/teams:
+    patch:
+      summary: Reorganiza os dois times da partida
+      description: >-
+        Somente o organizador pode mover ou trocar participantes. Cada jogador
+        deve aparecer uma única vez, e a lista precisa corresponder aos
+        participantes atuais da partida.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/MatchId"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MatchTeamsUpdate" }
+      responses:
+        "200": { $ref: "#/components/responses/MatchSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /matches/{matchId}/messages:
+    parameters:
+      - $ref: "#/components/parameters/MatchId"
+    get:
+      summary: Lista mensagens da partida após um cursor
+      description: >-
+        Disponível somente a participantes confirmados, com até 240 leituras por
+        minuto por jogador. Após cada publicação, a partida conserva no máximo as 1.000
+        mensagens mais recentes na ordem armazenada.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: after
+          in: query
+          description: Cursor devolvido anteriormente em nextCursor.
+          schema: { type: string, maxLength: 100 }
+        - name: limit
+          in: query
+          description: Quantidade máxima de mensagens. O padrão é 50.
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200": { $ref: "#/components/responses/MessagePageSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    post:
+      summary: Publica uma mensagem no chat da partida
+      description: Disponível somente a participantes confirmados; limite de 60 mensagens por minuto por jogador.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MatchMessageInput" }
+      responses:
+        "201": { $ref: "#/components/responses/MessageSuccess" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+components:
+  headers:
+    RequestId:
+      description: Identificador de correlação também gravado nos eventos de auditoria aplicáveis.
+      schema: { type: string }
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: quadrafy_session
+  parameters:
+    RequestIdHeader:
+      name: X-Request-Id
+      in: header
+      required: false
+      description: Correlação opcional; valores ausentes ou acima de 100 caracteres são substituídos por UUID.
+      schema: { type: string, maxLength: 100 }
+    ClubId:
+      name: clubId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    CourtId:
+      name: courtId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    MatchId:
+      name: matchId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    BookingId:
+      name: bookingId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    RecurringBookingId:
+      name: recurringBookingId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    Success:
+      description: Operação realizada
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: { type: object, additionalProperties: true }
+    AuthSuccess:
+      description: Autenticação realizada
+      headers:
+        Set-Cookie: { schema: { type: string } }
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/AuthResponse" }
+    ImageUploadSuccess:
+      description: Imagem persistida
+      headers:
+        Location: { schema: { type: string } }
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: object
+                required: [url]
+                properties:
+                  url: { type: string, pattern: "^/uploads/" }
+    PlayerProfileReadSuccess:
+      description: Perfil completo do jogador autenticado
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: object
+                required: [profile, user]
+                properties:
+                  profile: { type: object, additionalProperties: true }
+                  user: { $ref: "#/components/schemas/PublicUser" }
+    PlayerProfileSuccess:
+      description: Perfil atualizado
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: object
+                required: [user]
+                properties:
+                  user: { $ref: "#/components/schemas/PublicUser" }
+    PublicPlayerProfileSuccess:
+      description: Perfil público do jogador sem e-mail ou credenciais
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: object
+                required: [player]
+                properties:
+                  player: { $ref: "#/components/schemas/PublicPlayerProfile" }
+    ClubProfileSuccess:
+      description: Perfil público da arena atualizado
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: object
+                required: [club]
+                properties:
+                  club: { $ref: "#/components/schemas/Club" }
+    LevelTestSuccess:
+      description: Avaliação concluída pelo provedor ou pelo fallback local
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: object
+                required: [result, user, engine]
+                properties:
+                  result: { $ref: "#/components/schemas/LevelTestResult" }
+                  user: { $ref: "#/components/schemas/PublicUser" }
+                  engine: { $ref: "#/components/schemas/LevelTestEngine" }
+    CourtSuccess:
+      description: Quadra criada ou atualizada
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: object
+                required: [court]
+                properties:
+                  court: { $ref: "#/components/schemas/Court" }
+    CourtDeletionImpactSuccess:
+      description: Impacto da exclusão de uma quadra
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: object
+                required: [futureBookings]
+                properties:
+                  futureBookings: { type: integer, minimum: 0 }
+    BookingSuccess:
+      description: Reserva retornada
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: object
+                required: [booking]
+                properties:
+                  booking: { $ref: "#/components/schemas/Booking" }
+    MatchListSuccess:
+      description: Lista de partidas no DTO público
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: object
+                required: [matches]
+                properties:
+                  matches:
+                    type: array
+                    items: { $ref: "#/components/schemas/Match" }
+    MatchSuccess:
+      description: Partida no DTO público
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: object
+                required: [match]
+                properties:
+                  match: { $ref: "#/components/schemas/Match" }
+    MessagePageSuccess:
+      description: Página de mensagens em ordem de criação
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: { $ref: "#/components/schemas/MatchMessagePage" }
+    MessageSuccess:
+      description: Mensagem criada
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: object
+                required: [message]
+                properties:
+                  message: { $ref: "#/components/schemas/MatchMessage" }
+    ScheduleSuccess:
+      description: Grade consolidada
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                oneOf:
+                  - $ref: "#/components/schemas/ClubDaySchedule"
+                  - $ref: "#/components/schemas/ClubWeekSchedule"
+    FinanceSuccess:
+      description: Indicadores e séries financeiras do período
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: { $ref: "#/components/schemas/FinanceData" }
+    RecurringBookingSuccess:
+      description: Reserva fixa criada ou atualizada
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: object
+                required: [recurringBooking]
+                properties:
+                  recurringBooking:
+                    $ref: "#/components/schemas/RecurringBooking"
+    Unauthorized:
+      description: Sessão ausente ou inválida
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    Forbidden:
+      description: Papel sem autorização
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    Conflict:
+      description: Conflito de estado ou horário
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    NotFound:
+      description: Recurso não encontrado
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    ValidationError:
+      description: Campos inválidos
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    RateLimited:
+      description: Limite temporal ou máximo de reservas futuras excedido
+      headers:
+        Retry-After:
+          description: Segundos até nova tentativa, presente nos limites temporais.
+          schema: { type: integer }
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+  schemas:
+    ImageUploadInput:
+      type: object
+      required: [type, mimeType, data]
+      properties:
+        type: { enum: [player, club, court] }
+        resourceId:
+          type: string
+          format: uuid
+          description: Obrigatório para quadras; opcional para o próprio jogador ou clube.
+        mimeType: { enum: [image/jpeg, image/png, image/webp] }
+        data:
+          type: string
+          contentEncoding: base64
+          description: Conteúdo binário em base64; imagem decodificada limitada a 5 MB.
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8, maxLength: 128 }
+    PlayerRegistration:
+      type: object
+      required: [role, firstName, lastName, email, password, city]
+      properties:
+        role: { const: player }
+        firstName: { type: string, minLength: 2, maxLength: 60 }
+        lastName: { type: string, minLength: 2, maxLength: 80 }
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 8, maxLength: 128 }
+        city: { type: string, minLength: 2, maxLength: 100 }
+    ClubRegistration:
+      type: object
+      required: [role, responsibleName, arenaName, cnpj, email, password]
+      properties:
+        role: { const: club }
+        responsibleName: { type: string, minLength: 2, maxLength: 120 }
+        arenaName: { type: string, minLength: 2, maxLength: 120 }
+        cnpj: { type: string, minLength: 14, maxLength: 24 }
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 8, maxLength: 128 }
+    ClubProfileInput:
+      type: object
+      required: [name, address]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 120 }
+        description:
+          anyOf:
+            - const: ""
+            - { type: string, minLength: 2, maxLength: 800 }
+        phone:
+          anyOf:
+            - const: ""
+            - { type: string, minLength: 7, maxLength: 40 }
+        address: { type: string, minLength: 5, maxLength: 240 }
+        photoUrl:
+          description: URL HTTPS, asset local, upload do próprio clube ou string vazia.
+          anyOf:
+            - const: ""
+            - type: string
+              minLength: 8
+              maxLength: 2048
+              pattern: "^([hH][tT][tT][pP][sS]://|/[aA][sS][sS][eE][tT][sS]/|/uploads/clubs/)"
+    Club:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - phone
+        - address
+        - photoUrl
+        - status
+        - courtCount
+        - courtTypes
+        - minimumPrice
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        phone: { type: string }
+        address: { type: string }
+        photoUrl: { type: string }
+        status: { type: string }
+        courtCount: { type: integer, minimum: 0 }
+        courtTypes:
+          type: array
+          uniqueItems: true
+          items: { enum: [covered, outdoor] }
+        minimumPrice: { type: [number, "null"], minimum: 0 }
+    PlayerProfileUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        firstName: { type: string, minLength: 2, maxLength: 60 }
+        lastName: { type: string, minLength: 2, maxLength: 80 }
+        city: { type: string, minLength: 2, maxLength: 100 }
+        preferredSide:
+          anyOf:
+            - const: ""
+            - type: string
+              minLength: 2
+              maxLength: 40
+          examples: [esquerdo]
+        dominantHand:
+          anyOf:
+            - const: ""
+            - type: string
+              minLength: 2
+              maxLength: 40
+          examples: [destra]
+        availability:
+          anyOf:
+            - const: ""
+            - type: string
+              minLength: 2
+              maxLength: 160
+        playStyle:
+          anyOf:
+            - const: ""
+            - type: string
+              minLength: 2
+              maxLength: 60
+          examples: [competitivo]
+        photoUrl:
+          description: URL HTTPS, asset local, upload do próprio jogador ou string vazia.
+          anyOf:
+            - const: ""
+            - type: string
+              minLength: 8
+              maxLength: 2048
+              pattern: "^([hH][tT][tT][pP][sS]://|/[aA][sS][sS][eE][tT][sS]/|/uploads/players/)"
+    LevelTestInput:
+      type: object
+      required:
+        - tempo_pratica
+        - experiencia_esportes_raquete
+        - frequencia_semanal
+        - autoavaliacao_golpes
+      properties:
+        tempo_pratica:
+          enum:
+            - Nunca joguei
+            - Menos de 3 meses
+            - Entre 3 e 12 meses
+            - Entre 1 e 3 anos
+            - Mais de 3 anos
+        experiencia_esportes_raquete:
+          enum:
+            - Nenhuma
+            - Recreativa
+            - Frequente
+            - Tênis ou squash em alto nível
+        frequencia_semanal:
+          enum:
+            - Ainda não jogo toda semana
+            - Uma vez por semana
+            - Duas vezes por semana
+            - Três vezes por semana
+            - Mais de três vezes por semana
+        autoavaliacao_golpes:
+          enum:
+            - Estou aprendendo os golpes básicos
+            - Consigo sustentar trocas simples
+            - Tenho controle e uso paredes
+            - Domino golpes, paredes e estratégia
+    LevelTestResult:
+      type: object
+      required:
+        - nivel_inicial
+        - confiabilidade_inicial
+        - categoria_sugerida
+        - analise_tecnica
+      properties:
+        nivel_inicial:
+          { type: number, minimum: 0.5, maximum: 7, multipleOf: 0.1 }
+        confiabilidade_inicial: { type: integer, const: 20 }
+        categoria_sugerida: { type: string, maxLength: 80 }
+        analise_tecnica: { type: string, maxLength: 600 }
+    LevelTestEngine:
+      type: object
+      required: [provider, usedFallback, warning]
+      properties:
+        provider: { enum: [anthropic, fallback] }
+        usedFallback: { type: boolean }
+        warning:
+          type: [string, "null"]
+          description: Aviso ao jogador quando o cálculo local foi usado.
+    CourtInput:
+      type: object
+      description: >-
+        openTime/closeTime/slotDuration são canônicos. Cada horário aceita também
+        seu alias legado; campos canônicos prevalecem quando ambos são enviados.
+      required: [name, price, type]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        price: { type: number, minimum: 1, maximum: 10000 }
+        type: { enum: [covered, outdoor] }
+        openTime:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):(?:00|30)$"
+          examples: ["06:30"]
+        closeTime:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):(?:00|30)$"
+          examples: ["23:00"]
+        slotDuration: { type: integer, enum: [60, 90], default: 90 }
+        photoUrl:
+          description: URL HTTPS, asset local, upload da própria quadra ou string vazia.
+          anyOf:
+            - const: ""
+            - type: string
+              minLength: 8
+              maxLength: 2048
+              pattern: "^([hH][tT][tT][pP][sS]://|/[aA][sS][sS][eE][tT][sS]/|/uploads/courts/)"
+        opensAt:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):(?:00|30)$"
+          deprecated: true
+          description: Alias legado de openTime.
+        closesAt:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):(?:00|30)$"
+          deprecated: true
+          description: Alias legado de closeTime.
+        slotDurationMinutes:
+          type: integer
+          enum: [60, 90]
+          default: 90
+          deprecated: true
+          description: Alias legado de slotDuration.
+      allOf:
+        - anyOf:
+            - required: [openTime]
+              properties:
+                openTime: { type: string }
+            - required: [opensAt]
+              properties:
+                opensAt: { type: string }
+        - anyOf:
+            - required: [closeTime]
+              properties:
+                closeTime: { type: string }
+            - required: [closesAt]
+              properties:
+                closesAt: { type: string }
+    CourtUpdate:
+      oneOf:
+        - $ref: "#/components/schemas/CourtInput"
+        - type: object
+          description: Contrato legado para alternar somente o estado da quadra.
+          required: [active]
+          additionalProperties: false
+          properties:
+            active: { type: boolean }
+    Court:
+      type: object
+      required:
+        - id
+        - clubId
+        - name
+        - price
+        - type
+        - active
+        - openTime
+        - closeTime
+        - slotDuration
+        - photoUrl
+        - opensAt
+        - closesAt
+        - slotDurationMinutes
+      properties:
+        id: { type: string, format: uuid }
+        clubId: { type: string, format: uuid }
+        name: { type: string }
+        price: { type: number }
+        type: { enum: [covered, outdoor] }
+        active: { type: boolean }
+        openTime: { type: string }
+        closeTime: { type: string }
+        slotDuration: { type: integer, enum: [60, 90] }
+        photoUrl: { type: string }
+        opensAt:
+          type: string
+          deprecated: true
+          description: Alias legado de openTime.
+        closesAt:
+          type: string
+          deprecated: true
+          description: Alias legado de closeTime.
+        slotDurationMinutes:
+          type: integer
+          enum: [60, 90]
+          deprecated: true
+          description: Alias legado de slotDuration.
+    BookingInput:
+      description: Reserva privada ou jogo aberto com faixa numérica obrigatória.
+      oneOf:
+        - $ref: "#/components/schemas/PrivateBookingInput"
+        - $ref: "#/components/schemas/OpenBookingInput"
+      discriminator:
+        propertyName: visibility
+        mapping:
+          private: "#/components/schemas/PrivateBookingInput"
+          open: "#/components/schemas/OpenBookingInput"
+    PrivateBookingInput:
+      type: object
+      required: [clubId, courtId, startAt, paymentMethod, visibility]
+      properties:
+        clubId: { type: string, format: uuid }
+        courtId: { type: string, format: uuid }
+        startAt:
+          type: string
+          format: date-time
+          description: Horário futuro situado no máximo 90 dias à frente.
+        paymentMethod: { enum: [pix, card, venue] }
+        visibility: { const: private }
+    OpenBookingInput:
+      type: object
+      required:
+        [
+          clubId,
+          courtId,
+          startAt,
+          paymentMethod,
+          visibility,
+          levelMin,
+          levelMax,
+        ]
+      properties:
+        clubId: { type: string, format: uuid }
+        courtId: { type: string, format: uuid }
+        startAt:
+          type: string
+          format: date-time
+          description: Horário futuro situado no máximo 90 dias à frente.
+        paymentMethod: { enum: [pix, card, venue] }
+        visibility: { const: open }
+        levelMin: { type: number, minimum: 0.5, maximum: 7, multipleOf: 0.01 }
+        levelMax: { type: number, minimum: 0.5, maximum: 7, multipleOf: 0.01 }
+        availableSpots:
+          type: integer
+          deprecated: true
+          description: Ignorado; o servidor sempre cria jogos abertos para quatro jogadores.
+    BookingUpdate:
+      oneOf:
+        - type: object
+          required: [status]
+          properties:
+            status: { const: cancelled }
+        - type: object
+          required: [visibility]
+          properties:
+            visibility: { const: private }
+        - type: object
+          required: [visibility, levelMin, levelMax]
+          properties:
+            visibility: { const: open }
+            levelMin:
+              { type: number, minimum: 0.5, maximum: 7, multipleOf: 0.01 }
+            levelMax:
+              { type: number, minimum: 0.5, maximum: 7, multipleOf: 0.01 }
+            availableSpots:
+              type: integer
+              deprecated: true
+              description: Ignorado; maxPlayers permanece em quatro.
+    TeamIds:
+      type: object
+      required: [team1, team2]
+      properties:
+        team1:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            type: [string, "null"]
+            format: uuid
+        team2:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            type: [string, "null"]
+            format: uuid
+    Booking:
+      type: object
+      required:
+        - id
+        - playerId
+        - clubId
+        - clubName
+        - courtId
+        - courtName
+        - startAt
+        - price
+        - paymentMethod
+        - paymentStatus
+        - refundStatus
+        - visibility
+        - maxPlayers
+        - openSpots
+        - participantIds
+        - teams
+        - slotDuration
+        - status
+        - cancellableUntil
+        - canCancel
+        - createdAt
+      properties:
+        id: { type: string, format: uuid }
+        playerId: { type: string, format: uuid }
+        player:
+          oneOf:
+            - $ref: "#/components/schemas/PublicPlayer"
+            - type: "null"
+        clubId: { type: string, format: uuid }
+        clubName: { type: string }
+        courtId: { type: string, format: uuid }
+        courtName: { type: string }
+        startAt: { type: string, format: date-time }
+        price: { type: number }
+        paymentMethod: { enum: [pix, card, venue] }
+        paymentStatus: { enum: [pending, paid] }
+        refundStatus:
+          type: [string, "null"]
+          enum: [pending, null]
+          description: Pending quando uma reserva paga foi cancelada e requer reembolso externo.
+        visibility: { enum: [private, open] }
+        levelRange: { type: [string, "null"] }
+        levelMin:
+          type: [number, "null"]
+          minimum: 0.5
+          maximum: 7
+        levelMax:
+          type: [number, "null"]
+          minimum: 0.5
+          maximum: 7
+        maxPlayers: { type: integer, enum: [1, 4] }
+        openSpots:
+          type: integer
+          minimum: 0
+          maximum: 3
+          description: >-
+            Vagas ainda disponíveis. O valor é persistido, começa em três no
+            jogo aberto e é atualizado conforme a lista de participantes;
+            reservas privadas usam zero.
+        participantIds:
+          type: array
+          items: { type: string, format: uuid }
+        teams:
+          oneOf:
+            - $ref: "#/components/schemas/TeamIds"
+            - type: "null"
+        slotDuration:
+          type: [integer, "null"]
+          enum: [60, 90, null]
+        status: { enum: [confirmed, cancelled] }
+        cancellableUntil: { type: string, format: date-time }
+        canCancel: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    PublicPlayer:
+      type: object
+      required: [id, displayName, initials, level, levelCategory, photoUrl]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        initials: { type: string }
+        level:
+          oneOf:
+            - { type: number, minimum: 0.5, maximum: 7 }
+            - { type: string }
+            - { type: "null" }
+        levelCategory: { type: [string, "null"] }
+        photoUrl: { type: string }
+    PublicPlayerProfile:
+      type: object
+      required: [id, displayName, photoUrl, level, city, stats]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        photoUrl: { type: string }
+        level: { type: [number, "null"], minimum: 0.5, maximum: 7 }
+        city: { type: string }
+        stats:
+          type: object
+          required: [matchesPlayed, wins, winRate]
+          properties:
+            matchesPlayed: { type: integer, minimum: 0 }
+            wins: { type: [integer, "null"], minimum: 0 }
+            winRate: { type: [number, "null"], minimum: 0, maximum: 100 }
+    PublicTeams:
+      type: object
+      required: [team1, team2]
+      properties:
+        team1:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/PublicPlayer"
+              - type: "null"
+        team2:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/PublicPlayer"
+              - type: "null"
+    Match:
+      type: object
+      description: DTO da partida; não contém forma/status de pagamento nem reembolso.
+      required:
+        - id
+        - creatorId
+        - clubId
+        - clubName
+        - courtId
+        - courtName
+        - startAt
+        - price
+        - visibility
+        - levelRange
+        - levelMin
+        - levelMax
+        - maxPlayers
+        - status
+        - createdAt
+        - participantIds
+        - teams
+        - teamIds
+        - slotDuration
+        - players
+        - availableSpots
+        - isFull
+        - isParticipant
+        - isOrganizer
+        - canJoin
+        - pricePerPlayer
+        - address
+        - distanceKm
+      properties:
+        id: { type: string, format: uuid }
+        creatorId: { type: string, format: uuid }
+        clubId: { type: string, format: uuid }
+        clubName: { type: string }
+        courtId: { type: string, format: uuid }
+        courtName: { type: string }
+        startAt: { type: string, format: date-time }
+        price: { type: number }
+        visibility: { const: open }
+        levelRange: { type: [string, "null"] }
+        levelMin: { type: [number, "null"], minimum: 0.5, maximum: 7 }
+        levelMax: { type: [number, "null"], minimum: 0.5, maximum: 7 }
+        maxPlayers: { type: integer, const: 4 }
+        status: { const: confirmed }
+        createdAt: { type: string, format: date-time }
+        participantIds:
+          type: array
+          items: { type: string, format: uuid }
+        teams: { $ref: "#/components/schemas/PublicTeams" }
+        teamIds: { $ref: "#/components/schemas/TeamIds" }
+        slotDuration:
+          type: [integer, "null"]
+          enum: [60, 90, null]
+        players:
+          type: array
+          items: { $ref: "#/components/schemas/PublicPlayer" }
+        availableSpots: { type: integer, minimum: 0, maximum: 3 }
+        isFull: { type: boolean }
+        isParticipant: { type: boolean }
+        isOrganizer: { type: boolean }
+        canJoin:
+          type: boolean
+          description: Indicação para UI; o POST de entrada sempre revalida início, nível e vagas.
+        pricePerPlayer: { type: number }
+        address: { type: [string, "null"] }
+        distanceKm: { type: [number, "null"] }
+    MatchJoinInput:
+      type: object
+      required: [team, slot]
+      additionalProperties: false
+      properties:
+        team: { enum: [team1, team2] }
+        slot:
+          type: integer
+          minimum: 0
+          maximum: 1
+          description: Posição zero ou um dentro do time escolhido.
+    MatchTeamsUpdate:
+      type: object
+      required: [teams]
+      additionalProperties: false
+      properties:
+        teams: { $ref: "#/components/schemas/TeamIds" }
+    MatchMessageInput:
+      type: object
+      required: [content]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 1000 }
+    MatchMessage:
+      type: object
+      required: [id, matchId, playerId, player, content, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        matchId: { type: string, format: uuid }
+        playerId: { type: string, format: uuid }
+        player: { $ref: "#/components/schemas/PublicPlayer" }
+        content: { type: string, minLength: 1, maxLength: 1000 }
+        createdAt: { type: string, format: date-time }
+    MatchMessagePage:
+      type: object
+      description: Após cada publicação, a origem conserva no máximo as 1.000 mensagens mais recentes por partida na ordem armazenada.
+      required: [messages, nextCursor]
+      properties:
+        messages:
+          type: array
+          items: { $ref: "#/components/schemas/MatchMessage" }
+        nextCursor: { type: [string, "null"] }
+    WeeklyRecurrence:
+      type: object
+      required: [frequency, dayOfWeek]
+      properties:
+        frequency: { const: weekly }
+        dayOfWeek:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: 0 representa domingo e 6 representa sábado.
+    MonthlyRecurrence:
+      type: object
+      required: [frequency, dayOfMonth]
+      properties:
+        frequency: { const: monthly }
+        dayOfMonth: { type: integer, minimum: 1, maximum: 31 }
+    Recurrence:
+      oneOf:
+        - $ref: "#/components/schemas/WeeklyRecurrence"
+        - $ref: "#/components/schemas/MonthlyRecurrence"
+      discriminator:
+        propertyName: frequency
+    RecurringBookingInput:
+      type: object
+      required: [clientName, startTime, recurrence]
+      properties:
+        clientName: { type: string, minLength: 2, maxLength: 100 }
+        startTime:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):(?:00|30)$"
+        recurrence: { $ref: "#/components/schemas/Recurrence" }
+    RecurringBookingUpdate:
+      type: object
+      required: [courtId, clientName, startTime, recurrence]
+      properties:
+        courtId: { type: string, minLength: 8, maxLength: 200 }
+        clientName: { type: string, minLength: 2, maxLength: 100 }
+        startTime:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):(?:00|30)$"
+        recurrence: { $ref: "#/components/schemas/Recurrence" }
+    RecurringBooking:
+      type: object
+      required:
+        - id
+        - clubId
+        - courtId
+        - courtName
+        - clientName
+        - startTime
+        - recurrence
+        - createdAt
+        - updatedAt
+      properties:
+        id: { type: string, format: uuid }
+        clubId: { type: string, format: uuid }
+        courtId: { type: string, format: uuid }
+        courtName: { type: string }
+        clientName: { type: string }
+        startTime: { type: string }
+        recurrence: { $ref: "#/components/schemas/Recurrence" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ClubSchedule:
+      type: object
+      required: [date, courts, recurringBookings]
+      properties:
+        date: { type: string, format: date }
+        courts:
+          type: array
+          items: { $ref: "#/components/schemas/ScheduleCourt" }
+        recurringBookings:
+          type: array
+          items: { $ref: "#/components/schemas/RecurringBooking" }
+    ClubDaySchedule:
+      allOf:
+        - $ref: "#/components/schemas/ClubSchedule"
+        - type: object
+          required: [period]
+          properties:
+            period: { const: day }
+    ClubWeekSchedule:
+      type: object
+      required: [period, from, to, days]
+      properties:
+        period: { const: week }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        days:
+          type: array
+          minItems: 7
+          maxItems: 7
+          items: { $ref: "#/components/schemas/ClubSchedule" }
+    ScheduleCourt:
+      type: object
+      required:
+        - courtId
+        - courtName
+        - active
+        - slotDurationMinutes
+        - slots
+      properties:
+        courtId: { type: string, format: uuid }
+        courtName: { type: string }
+        active: { type: boolean }
+        slotDurationMinutes: { type: integer, enum: [60, 90] }
+        slots:
+          type: array
+          items: { $ref: "#/components/schemas/ScheduleSlot" }
+    ScheduleSlot:
+      type: object
+      required: [startAt, time, status]
+      properties:
+        startAt: { type: string, format: date-time }
+        time: { type: string }
+        status: { enum: [available, booked, recurring, blocked] }
+        booking: { $ref: "#/components/schemas/Booking" }
+        recurringBooking: { $ref: "#/components/schemas/RecurringBooking" }
+    FinanceData:
+      type: object
+      required:
+        - summary
+        - byCourt
+        - bookings
+        - revenueByDay
+        - occupancyByCourt
+        - byPaymentMethod
+        - previousPeriod
+        - period
+      properties:
+        summary: { $ref: "#/components/schemas/FinanceSummary" }
+        byCourt:
+          type: array
+          items: { $ref: "#/components/schemas/FinanceCourtSummary" }
+        bookings:
+          type: array
+          items: { $ref: "#/components/schemas/Booking" }
+        revenueByDay:
+          type: array
+          items: { $ref: "#/components/schemas/FinanceDailyPoint" }
+        occupancyByCourt:
+          type: array
+          items: { $ref: "#/components/schemas/FinanceOccupancy" }
+        byPaymentMethod:
+          type: array
+          items: { $ref: "#/components/schemas/FinancePaymentMethod" }
+        previousPeriod: { $ref: "#/components/schemas/FinancePaidSummary" }
+        period: { $ref: "#/components/schemas/FinancePeriod" }
+    FinancePaidSummary:
+      type: object
+      required: [paidRevenue, paidBookings]
+      properties:
+        paidRevenue: { type: number, minimum: 0 }
+        paidBookings: { type: integer, minimum: 0 }
+    FinanceSummary:
+      allOf:
+        - $ref: "#/components/schemas/FinancePaidSummary"
+        - type: object
+          required: [totalBookings, averageTicket]
+          properties:
+            totalBookings: { type: integer, minimum: 0 }
+            averageTicket: { type: number, minimum: 0 }
+    FinanceCourtSummary:
+      allOf:
+        - $ref: "#/components/schemas/FinancePaidSummary"
+        - type: object
+          required: [courtId, courtName]
+          properties:
+            courtId: { type: string, format: uuid }
+            courtName: { type: string }
+    FinanceDailyPoint:
+      allOf:
+        - $ref: "#/components/schemas/FinancePaidSummary"
+        - type: object
+          required: [date]
+          properties:
+            date: { type: string, format: date }
+    FinanceOccupancy:
+      type: object
+      required: [courtId, courtName, occupiedSlots, totalSlots, occupancyRate]
+      properties:
+        courtId: { type: string, format: uuid }
+        courtName: { type: string }
+        occupiedSlots: { type: integer, minimum: 0 }
+        totalSlots: { type: integer, minimum: 0 }
+        occupancyRate: { type: number, minimum: 0, maximum: 100 }
+    FinancePaymentMethod:
+      allOf:
+        - $ref: "#/components/schemas/FinancePaidSummary"
+        - type: object
+          required: [paymentMethod, label]
+          properties:
+            paymentMethod: { enum: [pix, card, venue] }
+            label: { type: string }
+    FinancePeriod:
+      type: object
+      required: [from, to, previousFrom, previousTo]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        previousFrom: { type: string, format: date }
+        previousTo: { type: string, format: date }
+    PublicUser:
+      type: object
+      required: [id, role, email, profile, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        role: { enum: [player, club] }
+        email: { type: string, format: email }
+        profile: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+    AuthResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [user, redirectTo]
+          properties:
+            user: { $ref: "#/components/schemas/PublicUser" }
+            redirectTo: { type: string }
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object, additionalProperties: true }
+            requestId: { type: string }

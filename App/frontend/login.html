@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="pt-BR" data-page="auth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Entre ou crie sua conta na Quadrafy." />
+    <title>Entrar — Quadrafy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Montserrat:wght@400;500;600;700&family=Poppins:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body class="auth-page">
+    <a
+      class="brand brand--image auth-brand"
+      href="index.html"
+      aria-label="Voltar para a página inicial"
+      ><span class="brand-logo-surface brand-logo-surface--login"
+        ><img
+          class="brand-logo brand-logo--full brand-logo--login"
+          src="assets/images/quadrafy-logo.png"
+          width="1600"
+          height="485"
+          alt="Quadrafy" /></span
+    ></a>
+    <main class="auth-layout">
+      <section class="auth-showcase">
+        <div class="auth-art">
+          <span class="court-line line-a"></span
+          ><span class="court-line line-b"></span
+          ><span class="court-line line-c"></span>
+          <div class="auth-ball"><i></i></div>
+          <div class="auth-quote">
+            <p>“A melhor partida é sempre a próxima.”</p>
+            <span>Quadrafy / Manifesto 01</span>
+          </div>
+        </div>
+      </section>
+      <section class="auth-panel">
+        <div class="auth-card">
+          <div class="auth-tabs" role="tablist">
+            <button
+              class="active"
+              type="button"
+              data-auth-tab="login"
+              role="tab"
+              aria-selected="true"
+            >
+              Entrar
+            </button>
+            <button
+              type="button"
+              data-auth-tab="signup"
+              role="tab"
+              aria-selected="false"
+            >
+              Criar conta
+            </button>
+          </div>
+          <div class="auth-view active" data-auth-view="login">
+            <div class="auth-heading">
+              <p class="eyebrow dark">Bem-vindo de volta</p>
+              <h1>Pronto para<br /><em>jogar?</em></h1>
+              <p>Entre para reservar sua próxima quadra.</p>
+            </div>
+            <form data-auth-form="login">
+              <label class="input-group"
+                ><span>E-mail</span
+                ><input
+                  type="email"
+                  name="email"
+                  autocomplete="username"
+                  placeholder="voce@email.com"
+                  required
+              /></label>
+              <label class="input-group"
+                ><span>Senha</span
+                ><input
+                  type="password"
+                  name="password"
+                  autocomplete="current-password"
+                  minlength="8"
+                  maxlength="128"
+                  placeholder="Sua senha"
+                  required
+                /><button
+                  class="password-toggle"
+                  type="button"
+                  data-password-toggle
+                >
+                  Mostrar
+                </button></label
+              >
+              <div class="form-row">
+                <label class="check"
+                  ><input type="checkbox" name="rememberMe" /><span></span
+                  >Lembrar de mim</label
+                ><a href="#">Esqueci minha senha</a>
+              </div>
+              <button
+                class="button button-primary button-block shine"
+                type="submit"
+              >
+                Entrar na plataforma <span>→</span>
+              </button>
+              <p
+                class="auth-feedback hidden"
+                role="alert"
+                aria-live="polite"
+                data-auth-feedback
+              ></p>
+            </form>
+            <p class="auth-note">
+              Use sua conta cadastrada para acessar o painel correspondente.
+            </p>
+          </div>
+          <div class="auth-view" data-auth-view="signup">
+            <div class="auth-heading compact">
+              <p class="eyebrow dark">Faça parte do clube</p>
+              <h1>Crie sua conta.</h1>
+              <p>Primeiro, conte como você usa o padel.</p>
+            </div>
+            <div
+              class="role-picker"
+              role="radiogroup"
+              aria-label="Tipo de conta"
+            >
+              <button class="role-card active" type="button" data-role="player">
+                <span class="role-icon" data-icon="player"></span
+                ><strong>Sou jogador</strong
+                ><small>Quero jogar e reservar</small><i></i>
+              </button>
+              <button class="role-card" type="button" data-role="club">
+                <span class="role-icon" data-icon="club"></span
+                ><strong>Tenho uma arena</strong
+                ><small>Quero gerenciar meu clube</small><i></i>
+              </button>
+            </div>
+            <form
+              data-auth-form="register"
+              data-role-form="player"
+              data-auth-role="player"
+            >
+              <div class="input-grid">
+                <label class="input-group"
+                  ><span>Nome</span
+                  ><input
+                    type="text"
+                    name="firstName"
+                    autocomplete="given-name"
+                    maxlength="60"
+                    placeholder="Seu nome"
+                    required /></label
+                ><label class="input-group"
+                  ><span>Sobrenome</span
+                  ><input
+                    type="text"
+                    name="lastName"
+                    autocomplete="family-name"
+                    maxlength="80"
+                    placeholder="Sobrenome"
+                    required
+                /></label>
+              </div>
+              <label class="input-group"
+                ><span>E-mail</span
+                ><input
+                  type="email"
+                  name="email"
+                  autocomplete="username"
+                  placeholder="voce@email.com"
+                  required
+              /></label>
+              <label class="input-group"
+                ><span>Cidade</span
+                ><input
+                  type="text"
+                  name="city"
+                  autocomplete="address-level2"
+                  maxlength="100"
+                  placeholder="Sua cidade"
+                  required
+              /></label>
+              <label class="input-group"
+                ><span>Crie uma senha</span
+                ><input
+                  type="password"
+                  name="password"
+                  autocomplete="new-password"
+                  minlength="8"
+                  maxlength="128"
+                  placeholder="Mínimo de 8 caracteres"
+                  required
+              /></label>
+              <button
+                class="button button-primary button-block shine"
+                type="submit"
+              >
+                Criar conta de jogador <span>→</span>
+              </button>
+              <p
+                class="auth-feedback hidden"
+                role="alert"
+                aria-live="polite"
+                data-auth-feedback
+              ></p>
+            </form>
+            <form
+              class="hidden"
+              data-auth-form="register"
+              data-role-form="club"
+              data-auth-role="club"
+            >
+              <label class="input-group"
+                ><span>Nome do responsável</span
+                ><input
+                  type="text"
+                  name="responsibleName"
+                  autocomplete="name"
+                  maxlength="120"
+                  placeholder="Seu nome completo"
+                  required
+              /></label>
+              <div class="input-grid">
+                <label class="input-group"
+                  ><span>Nome da arena</span
+                  ><input
+                    type="text"
+                    name="arenaName"
+                    autocomplete="organization"
+                    maxlength="120"
+                    placeholder="Nome comercial"
+                    required /></label
+                ><label class="input-group"
+                  ><span>CNPJ</span
+                  ><input
+                    type="text"
+                    name="cnpj"
+                    inputmode="numeric"
+                    minlength="14"
+                    maxlength="24"
+                    placeholder="00.000.000/0001-00"
+                    required
+                /></label>
+              </div>
+              <label class="input-group"
+                ><span>E-mail comercial</span
+                ><input
+                  type="email"
+                  name="email"
+                  autocomplete="username"
+                  placeholder="contato@arena.com.br"
+                  required
+              /></label>
+              <label class="input-group"
+                ><span>Crie uma senha</span
+                ><input
+                  type="password"
+                  name="password"
+                  autocomplete="new-password"
+                  minlength="8"
+                  maxlength="128"
+                  placeholder="Mínimo de 8 caracteres"
+                  required
+              /></label>
+              <button
+                class="button button-primary button-block shine"
+                type="submit"
+              >
+                Cadastrar minha arena <span>→</span>
+              </button>
+              <p
+                class="auth-feedback hidden"
+                role="alert"
+                aria-live="polite"
+                data-auth-feedback
+              ></p>
+            </form>
+          </div>
+        </div>
+        <p class="auth-legal">
+          Ao continuar, você concorda com os <a href="#">Termos de Uso</a> e a
+          <a href="#">Política de Privacidade</a>.
+        </p>
+      </section>
+    </main>
+    <div class="toast" role="status" aria-live="polite" data-toast></div>
+    <script src="assets/js/app.js" defer></script>
+  </body>
+</html>

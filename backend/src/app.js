@@ -273,6 +273,7 @@ export async function createApp(overrides = {}) {
   const matchResults = new MatchResultStore(config.dataDirectory);
   const levelHistory = new LevelHistoryStore(config.dataDirectory);
   const super8 = new Super8Store(config.dataDirectory);
+  const supabaseEnabled = Boolean(config.supabaseUrl && config.supabaseSecretKey);
   const loginIpLimiter = new RateLimiter({
     limit: 30,
     windowMs: 15 * 60 * 1000,
@@ -3261,5 +3262,6 @@ export async function createApp(overrides = {}) {
     matchMessages,
     recurringBookings,
     auditLog,
+    supabaseEnabled,
   };
 }

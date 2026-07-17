@@ -1,9 +1,11 @@
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import { createApp } from "./app.js";
+import { supabase } from "./lib/supabase.js";
 
 export async function startServer(overrides = {}) {
   const app = await createApp(overrides);
+  app.supabase = supabase;
   const server = createServer(app.handler);
 
   await new Promise((resolve, reject) => {

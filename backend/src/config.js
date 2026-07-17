@@ -42,5 +42,8 @@ export function loadConfig(overrides = {}) {
       overrides.anthropicTimeoutMs ?? process.env.ANTHROPIC_TIMEOUT_MS,
       8_000,
     ),
+    supabaseUrl: overrides.supabaseUrl ?? process.env.SUPABASE_URL ?? '',
+    supabaseSecretKey:
+      overrides.supabaseSecretKey ?? process.env.SUPABASE_SECRET_KEY ?? '',
   };
 }

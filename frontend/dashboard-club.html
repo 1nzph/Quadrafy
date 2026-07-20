@@ -34,8 +34,10 @@
       <nav class="app-tabs" aria-label="Gestão do clube">
         <button class="active" type="button" data-owner-tab="arenas">
           Minhas arenas</button
-        ><button type="button" data-owner-tab="tournaments-super8">
-          Torneios/Super8</button
+        ><button type="button" data-owner-tab="super8">
+          Super 8</button
+        ><button type="button" data-owner-tab="tournaments">
+          Torneios</button
         ><button type="button" data-owner-tab="finance">Financeiro</button>
       </nav>
       <div class="profile-menu">
@@ -392,35 +394,7 @@
         </div>
       </section>
 
-      <section class="app-view" data-owner-view="tournaments-super8">
-        <div class="app-container ts8-subnav-wrap">
-          <div class="ts8-subnav" role="tablist" aria-label="Torneios e Super 8">
-            <button
-              class="active"
-              type="button"
-              data-ts8-tab="super8"
-              role="tab"
-              aria-selected="true"
-            >
-              Super 8
-            </button>
-            <button
-              type="button"
-              data-ts8-tab="tournaments"
-              role="tab"
-              aria-selected="false"
-            >
-              Torneios
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section
-        class="app-view"
-        data-owner-view="tournaments-super8"
-        data-ts8-section="super8"
-      >
+      <section class="app-view" data-owner-view="super8">
         <div class="app-container">
           <div class="app-heading">
             <div>
@@ -445,11 +419,7 @@
         </div>
       </section>
 
-      <section
-        class="app-view"
-        data-owner-view="tournaments-super8"
-        data-ts8-section="tournaments"
-      >
+      <section class="app-view" data-owner-view="tournaments">
         <div class="app-container">
           <div class="app-heading">
             <div>

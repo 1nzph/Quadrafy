@@ -104,12 +104,8 @@
     $(".app-nav")?.classList.remove("menu-open");
     scrollTo({ top: 0, behavior: "smooth" });
     if (name === "finance") loadFinance();
-    // TASKS-14 / TASK-64: Super 8 e Torneios vivem juntos em uma área só
-    if (name === "tournaments-super8") {
-      setTs8Section(ts8State.section);
-      loadSuper8();
-      loadTournaments();
-    }
+    if (name === "super8") loadSuper8();
+    if (name === "tournaments") loadTournaments();
   }
 
   function switchManageView(name) {
@@ -123,33 +119,6 @@
     if (name === "reservations") loadBookings();
   }
 
-
-  /* ========= TASKS-14 / TASK-64 — sub-navegação Torneios/Super8 ======== */
-
-  const ts8State = { section: "super8" };
-
-  function setTs8Section(name) {
-    ts8State.section = name;
-    $$("[data-ts8-tab]").forEach((button) => {
-      const active = button.dataset.ts8Tab === name;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-selected", active ? "true" : "false");
-    });
-    $$("[data-ts8-section]").forEach((section) => {
-      section.classList.toggle(
-        "ts8-hidden",
-        section.dataset.ts8Section !== name,
-      );
-    });
-  }
-
-  function setupTs8Subnav() {
-    $$("[data-ts8-tab]").forEach((button) =>
-      button.addEventListener("click", () =>
-        setTs8Section(button.dataset.ts8Tab),
-      ),
-    );
-  }
 
   /* ================= TASKS-09 — Super 8 ================= */
 
@@ -2424,8 +2393,6 @@
     setupTabs();
     setupSuper8();
     setupTournaments();
-    setupTs8Subnav();
-    setTs8Section("super8");
     // TASK-51: botão "Adicionar arena" (antes sem listener — botão morto).
     $("[data-add-arena]")?.addEventListener("click", openArenaModal);
     $("[data-arena-form]")?.addEventListener("submit", saveArena);

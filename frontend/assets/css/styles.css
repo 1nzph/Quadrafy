@@ -6443,40 +6443,6 @@ button.match-player-row:focus-visible strong {
   margin-bottom: 10px;
 }
 
-/* TASK-64 — sub-navegação Torneios/Super8 */
-.ts8-subnav-wrap {
-  padding-bottom: 0;
-}
-.ts8-subnav {
-  display: inline-flex;
-  gap: 4px;
-  margin-bottom: 4px;
-  padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #fff;
-}
-.ts8-subnav button {
-  border: 0;
-  border-radius: 999px;
-  padding: 8px 18px;
-  background: none;
-  color: var(--ink-soft);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.ts8-subnav button.active {
-  background: var(--coral);
-  color: #fff;
-}
-/* seção da sub-aba inativa: continua "active" para a navegação principal,
-   mas escondida pela sub-navegação */
-[data-ts8-section].ts8-hidden {
-  display: none;
-}
-
 /* ================================================================
    TASKS-15 / TASK-65 — controles da pré-visualização de imagem
    ================================================================ */

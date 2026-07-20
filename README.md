@@ -58,6 +58,7 @@ npm start
   gráficos por dia, quadra e forma de pagamento.
 - Upload local validado de imagens JPEG, PNG e WebP com limite de 5 MB.
 - Trilha de auditoria das operações sensíveis.
+- Sistema de conquistas com pins de progressão, títulos de campeão e perfil público colecionável.
 
 ## Persistência e segurança
 

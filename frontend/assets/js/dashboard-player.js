@@ -50,6 +50,8 @@
     levelTestRequired: false,
     lastFocusedElement: null,
     profilePreviewObjectUrl: null,
+    achievements: [],
+    achievementCatalog: [],
   };
 
   const emptyState = (title, text) =>
@@ -1841,7 +1843,7 @@
     if (!confirmed) return;
     setBusy(button, true, "Confirmando…");
     try {
-      const { result, levelChanges } = await apiRequest(
+      const { result, levelChanges, achievementsUnlocked = [] } = await apiRequest(
         `/api/v1/matches/${encodeURIComponent(state.currentMatch.id)}/result/confirm`,
         { method: "POST" },
       );
@@ -1849,7 +1851,9 @@
       renderMatchDetail(state.currentMatch);
       loadHistory();
       const myChange = levelChanges?.[state.session?.user?.id];
-      if (myChange) {
+      if (achievementsUnlocked.length) {
+        showToast(`🏆 Nova conquista desbloqueada: ${achievementsUnlocked[0].name}!`);
+      } else if (myChange) {
         const direction = myChange.delta >= 0 ? "+" : "";
         showToast(
           `Resultado confirmado. Seu nível: ${formatLevel(myChange.previousLevel)} → ${formatLevel(myChange.level)} (${direction}${myChange.delta.toLocaleString("pt-BR")}).`,
@@ -2361,7 +2365,7 @@
     }
   }
 
-  function renderPublicPlayerProfile(player) {
+  function renderPublicPlayerProfile(player, achievements = []) {
     const content = $("[data-public-player-content]");
     const name = player.displayName || "Jogador";
     const photoUrl = safePhotoUrl(player.photoUrl);
@@ -2398,16 +2402,25 @@
         <span><strong>${matchesPlayed}</strong><small>Partidas</small></span>
         <span><strong>${wins ?? "—"}</strong><small>Vitórias</small></span>
         <span><strong>${escapeHTML(winRate)}</strong><small>Taxa de vitória</small></span>
-      </div>`;
+      </div>
+      <section class="public-achievements" aria-labelledby="public-player-achievements">
+        <p class="micro-label">Pins conquistados</p>
+        <h3 id="public-player-achievements">Conquistas</h3>
+        <div class="achievements-grid achievements-grid-public" data-public-achievements-grid></div>
+      </section>`;
+    renderAchievementsGrid($('[data-public-achievements-grid]', content), achievements, {
+      owner: false,
+    });
   }
 
   async function openPublicPlayerProfile(playerId) {
     if (!playerId) return;
     try {
-      const { player } = await apiRequest(
-        `/api/v1/players/${encodeURIComponent(playerId)}/profile`,
-      );
-      renderPublicPlayerProfile(player);
+      const [profileData, achievementData] = await Promise.all([
+        apiRequest(`/api/v1/players/${encodeURIComponent(playerId)}/profile`),
+        apiRequest(`/api/v1/players/${encodeURIComponent(playerId)}/achievements`),
+      ]);
+      renderPublicPlayerProfile(profileData.player, achievementData.achievements || []);
       openAccessibleModal(
         $("[data-player-profile-modal]"),
         ".modal-close",
@@ -2687,7 +2700,126 @@
       loadProfileStats(),
       loadLevelHistoryChart(),
       loadConnections(),
+      loadAchievements(),
     ]);
+  }
+
+  function achievementAsset(asset) {
+    const value = String(asset || "");
+    return /^\/assets\/images\/achievements\/[a-z0-9/_\-.]+\.svg$/i.test(value)
+      ? value
+      : "/assets/images/achievements/pin-jogos-bronze.svg";
+  }
+
+  function achievementDetailText(achievement) {
+    const details = achievement.titleDetails;
+    const facts = details
+      ? [
+          details.competitionName,
+          details.clubName,
+          details.competitionDate
+            ? formatDate(details.competitionDate, {
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+              })
+            : "",
+          details.levelCategory ? `Faixa ${details.levelCategory}` : "",
+        ].filter(Boolean)
+      : [];
+    const unlocked = achievement.unlockedAt
+      ? ` Desbloqueada em ${formatDate(achievement.unlockedAt, { day: "2-digit", month: "long", year: "numeric" })}.`
+      : "";
+    return `${achievement.description || "Conquista Quadrafy."}${facts.length ? ` ${facts.join(" · ")}.` : ""}${unlocked}`;
+  }
+
+  function showAchievementDetail(achievement) {
+    showGenericModal({
+      eyebrow: achievement.type === "champion_title" ? "Título de campeão" : achievement.category || "Conquista Quadrafy",
+      title: achievement.name || "Conquista",
+      text: achievementDetailText(achievement),
+    });
+  }
+
+  function renderAchievementsGrid(container, items, { owner }) {
+    if (!container) return;
+    if (!items.length) {
+      container.innerHTML = `<p class="profile-data-note">${owner ? "Seus próximos pins aparecerão aqui conforme você joga." : "Este jogador ainda não desbloqueou pins públicos."}</p>`;
+      return;
+    }
+    container.innerHTML = items
+      .map((achievement, index) => {
+        const locked = Boolean(achievement.locked);
+        const champion = achievement.type === "champion_title";
+        const stateText = locked ? "Bloqueado" : champion ? "Título de campeão" : `Nível ${achievement.tier || "bronze"}`;
+        return `<button class="achievement-pin${locked ? " is-locked" : ""}${champion ? " is-champion" : ""}" type="button" data-achievement-index="${index}" aria-label="${escapeHTML(achievement.name)} — ${escapeHTML(stateText)}"><span class="achievement-pin-art"><img src="${escapeHTML(achievementAsset(achievement.asset))}" alt="" width="64" height="76" /></span><span class="achievement-pin-name">${escapeHTML(achievement.name)}</span><small>${escapeHTML(stateText)}</small></button>`;
+      })
+      .join("");
+    $$('[data-achievement-index]', container).forEach((button) =>
+      button.addEventListener("click", () => {
+        const achievement = items[Number(button.dataset.achievementIndex)];
+        if (achievement) showAchievementDetail(achievement);
+      }),
+    );
+  }
+
+  function ownAchievementItems() {
+    const unlockedById = new Map(
+      state.achievements
+        .filter((achievement) => achievement.type === "progress_tier")
+        .map((achievement) => [achievement.achievementId, achievement]),
+    );
+    const progress = state.achievementCatalog.map((definition) => {
+      const unlocked = unlockedById.get(definition.id);
+      return unlocked ? { ...definition, ...unlocked } : { ...definition, locked: true };
+    });
+    const championTitles = state.achievements.filter(
+      (achievement) => achievement.type === "champion_title",
+    );
+    return [...championTitles, ...progress];
+  }
+
+  function announceRecentAchievements(achievements) {
+    const userId = state.session?.user?.id;
+    if (!userId || !achievements.length) return;
+    const storageKey = `quadrafy:achievement-notices:${userId}`;
+    try {
+      const seen = new Set(JSON.parse(localStorage.getItem(storageKey) || "[]"));
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      const fresh = achievements.filter(
+        (achievement) =>
+          !seen.has(achievement.id) &&
+          new Date(achievement.unlockedAt).getTime() >= oneDayAgo,
+      );
+      if (fresh.length) showToast(`🏆 Nova conquista desbloqueada: ${fresh[0].name}!`);
+      achievements.forEach((achievement) => seen.add(achievement.id));
+      localStorage.setItem(storageKey, JSON.stringify([...seen].slice(-120)));
+    } catch {
+      // A coleção continua funcional quando o navegador bloqueia storage local.
+    }
+  }
+
+  async function loadAchievements() {
+    const container = $('[data-achievements-grid]');
+    const userId = state.session?.user?.id;
+    if (!container || !userId) return;
+    try {
+      const data = await apiRequest(
+        `/api/v1/players/${encodeURIComponent(userId)}/achievements`,
+      );
+      state.achievements = data.achievements || [];
+      state.achievementCatalog = data.catalog || [];
+      const items = ownAchievementItems();
+      renderAchievementsGrid(container, items, { owner: true });
+      const unlockedCount = state.achievements.length;
+      const count = $('[data-achievements-count]');
+      if (count) {
+        count.textContent = `${unlockedCount} ${unlockedCount === 1 ? "desbloqueado" : "desbloqueados"}`;
+      }
+      announceRecentAchievements(state.achievements);
+    } catch (error) {
+      container.innerHTML = `<p class="profile-data-note">${escapeHTML(error.message)}</p>`;
+    }
   }
 
   function winrateSegment(label, rate, played) {

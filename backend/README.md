@@ -51,6 +51,7 @@ Todas as rotas de painel exigem sessão e o papel correspondente.
 | `GET /api/v1/player/profile` | Retorna o perfil completo do jogador autenticado. |
 | `PATCH /api/v1/player/profile` | Atualiza campos editáveis do perfil. |
 | `GET /api/v1/players/:id/profile` | Retorna somente o perfil público seguro de outro jogador. |
+| `GET /api/v1/players/:id/achievements` | Retorna pins e títulos públicos; para o próprio perfil também informa o catálogo bloqueado. |
 | `POST /api/v1/player/level-test` | Avalia e persiste o nível inicial. |
 | `GET /api/v1/player/bookings/:id` | Detalha uma reserva criada ou participada. |
 | `PATCH /api/v1/player/bookings/:id` | Altera visibilidade/faixa ou cancela a reserva. |

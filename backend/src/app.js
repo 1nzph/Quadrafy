@@ -50,6 +50,12 @@ import { MatchResultStore } from "./stores/match-result-store.js";
 import { LevelHistoryStore } from "./stores/level-history-store.js";
 import { Super8Store } from "./stores/super8-store.js";
 import { TournamentStore } from "./stores/tournament-store.js";
+import { AchievementStore } from "./stores/achievement-store.js";
+import { publicAchievementCatalog } from "./config/achievements.js";
+import {
+  createAchievementsEngine,
+  toAchievementView,
+} from "./lib/achievements-engine.js";
 import {
   buildGroups,
   buildKnockoutBracket,
@@ -289,6 +295,7 @@ export async function createApp(overrides = {}) {
   const levelHistory = new LevelHistoryStore(config.dataDirectory);
   const super8 = new Super8Store(config.dataDirectory);
   const tournaments = new TournamentStore(config.dataDirectory);
+  const achievements = new AchievementStore(config.dataDirectory);
   const supabaseEnabled = Boolean(config.supabaseUrl && config.supabaseSecretKey);
   const loginIpLimiter = new RateLimiter({
     limit: 30,
@@ -348,7 +355,16 @@ export async function createApp(overrides = {}) {
     levelHistory.initialize(),
     super8.initialize(),
     tournaments.initialize(),
+    achievements.initialize(),
   ]);
+  const achievementsEngine = createAchievementsEngine({
+    users,
+    matchResults,
+    super8,
+    tournaments,
+    clubs,
+    achievementStore: achievements,
+  });
   const dummyPasswordHash = await hashPassword("quadrafy-dummy-password");
   let agendaWriteQueue = Promise.resolve();
 
@@ -1178,6 +1194,28 @@ export async function createApp(overrides = {}) {
               : null,
           },
         },
+      });
+      return true;
+    }
+
+    // TASKS-16 / 68 — os pins são públicos; o catálogo completo (incluindo
+    // bloqueados) aparece apenas para o dono do perfil.
+    const playerAchievementsRoute = pathname.match(
+      /^\/api\/v1\/players\/([^/]+)\/achievements$/,
+    );
+    if (playerAchievementsRoute && request.method === "GET") {
+      const playerId = decodeURIComponent(playerAchievementsRoute[1]);
+      const player = users.findById(playerId);
+      if (!player || player.role !== "player") {
+        throw new ApiError(404, "player_not_found", "Jogador não encontrado.");
+      }
+      const viewer = currentUser(request);
+      sendData(response, 200, {
+        achievements: achievements
+          .listByPlayer(playerId)
+          .map(toAchievementView)
+          .filter(Boolean),
+        catalog: viewer?.id === playerId ? publicAchievementCatalog() : [],
       });
       return true;
     }
@@ -2503,9 +2541,13 @@ export async function createApp(overrides = {}) {
         after: { winningTeam: entry.winningTeam, levelChanges },
         requestId: request.requestId,
       });
+      const achievementsByPlayer = await achievementsEngine.verifyPlayers(
+        players.map((player) => player.id),
+      );
       sendData(response, 200, {
         result: matchResultView(entry, user),
         levelChanges,
+        achievementsUnlocked: achievementsByPlayer[user.id] ?? [],
       });
       return true;
     }
@@ -2661,6 +2703,9 @@ export async function createApp(overrides = {}) {
       request.method === "GET"
     ) {
       const user = requireUser(request, "player");
+      // As conexões são agregadas sob demanda; esse é o gatilho natural para
+      // as conquistas sociais, sem criar um segundo fluxo de manutenção.
+      const achievementsUnlocked = await achievementsEngine.verifyPlayer(user.id);
       const confirmed = matchResults.listConfirmedByPlayer(user.id);
       const partners = new Map();
       const rivals = new Map();
@@ -2698,6 +2743,7 @@ export async function createApp(overrides = {}) {
       sendData(response, 200, {
         frequentPartners: toSortedList(partners),
         recurringRivals: toSortedList(rivals),
+        achievementsUnlocked,
       });
       return true;
     }
@@ -3050,6 +3096,24 @@ export async function createApp(overrides = {}) {
         standings,
         status,
       });
+      let achievementsUnlocked = [];
+      if (status === "finalizado") {
+        const participantIds = current.registrations.flatMap((registration) =>
+          registration.players.map((player) => player.id).filter(Boolean),
+        );
+        const byPlayer = await achievementsEngine.verifyPlayers(participantIds);
+        achievementsUnlocked.push(...Object.values(byPlayer).flat());
+        const winningPair = standings?.[0]
+          ? current.pairs.find((pair) => pair.id === standings[0].pairId)
+          : null;
+        achievementsUnlocked.push(
+          ...(await achievementsEngine.awardChampionTitle({
+            competition: tournament,
+            competitionType: "tournament",
+            winnerIds: winningPair?.players.map((player) => player.id) ?? [],
+          })),
+        );
+      }
       await auditLog.record({
         actorId: user.id,
         action: "tournament.game_result",
@@ -3059,7 +3123,10 @@ export async function createApp(overrides = {}) {
         after: { gameId, score },
         requestId: request.requestId,
       });
-      sendData(response, 200, { tournament: tournamentView(tournament) });
+      sendData(response, 200, {
+        tournament: tournamentView(tournament),
+        achievementsUnlocked,
+      });
       return true;
     }
 
@@ -3565,6 +3632,21 @@ export async function createApp(overrides = {}) {
         standings,
         status: "finalizado",
       });
+      const participantIds = current.players
+        .map((player) => player.id)
+        .filter(Boolean);
+      const byPlayer = await achievementsEngine.verifyPlayers(participantIds);
+      const winnerIds = (standings[0]?.key ?? "")
+        .split("|")
+        .filter((playerId) => users.findById(playerId)?.role === "player");
+      const achievementsUnlocked = [
+        ...Object.values(byPlayer).flat(),
+        ...(await achievementsEngine.awardChampionTitle({
+          competition: tournament,
+          competitionType: "super8",
+          winnerIds,
+        })),
+      ];
       await auditLog.record({
         actorId: user.id,
         action: "super8.finalized",
@@ -3574,7 +3656,10 @@ export async function createApp(overrides = {}) {
         after: { positions: standings.slice(0, 3) },
         requestId: request.requestId,
       });
-      sendData(response, 200, { tournament: super8View(tournament) });
+      sendData(response, 200, {
+        tournament: super8View(tournament),
+        achievementsUnlocked,
+      });
       return true;
     }
 

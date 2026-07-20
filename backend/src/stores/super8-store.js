@@ -41,6 +41,10 @@ export class Super8Store {
       );
   }
 
+  listAll() {
+    return this.tournaments;
+  }
+
   // Torneios publicados (visíveis ao jogador) em que o jogador está inscrito.
   listPublishedByPlayer(playerId) {
     return this.tournaments

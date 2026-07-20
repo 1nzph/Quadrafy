@@ -10,8 +10,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --env-file=.env --watch src/server.js",
-    "test": "node --env-file=.env --test",
-    "check": "node --env-file=.env --check src/server.js && node --env-file=.env --check src/app.js"
+    "test": "node --test",
+    "check": "node --check src/server.js && node --check src/app.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.56.0"

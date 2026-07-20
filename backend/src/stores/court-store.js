@@ -62,6 +62,7 @@ export class CourtStore {
     closeTime,
     slotDuration,
     photoUrl = "",
+    arenaId = null,
   }) {
     return this.enqueueWrite(async () => {
       const now = new Date().toISOString();
@@ -76,6 +77,8 @@ export class CourtStore {
         closeTime,
         slotDuration,
         photoUrl,
+        // TASK-51: null = arena principal do clube
+        arenaId: arenaId || null,
         opensAt: openTime,
         closesAt: closeTime,
         slotDurationMinutes: slotDuration,

@@ -66,6 +66,7 @@ async function registerClub(api, suffix = "principal") {
       cnpj: "12.345.678/0001-90",
       email: `clube-${suffix}@example.com`,
       password: "SenhaSeguraClube123",
+      phone: "11912345678",
     },
   });
 
@@ -86,6 +87,7 @@ async function registerPlayer(api, suffix, { omitLevel = false } = {}) {
       lastName: "Silva",
       email: `jogador-${suffix}@example.com`,
       password: "SenhaSeguraJogador123",
+      phone: "11912345678",
       city: "Sao Paulo",
       ...(!omitLevel ? { level: "Iniciante" } : {}),
     },

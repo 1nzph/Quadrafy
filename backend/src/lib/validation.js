@@ -205,6 +205,21 @@ export function validateSuper8(body) {
       { field: "players" },
     );
   }
+  // TASKS-14 / TASK-59 — horário de início do EVENTO (convocação), em
+  // intervalos de 30 minutos. Não gera horário por jogo (TASK-43 mantida).
+  let startTime = null;
+  if (body?.startTime !== undefined && body?.startTime !== null && body?.startTime !== "") {
+    const raw = String(body.startTime).trim();
+    if (!/^([01]\d|2[0-3]):(00|30)$/.test(raw)) {
+      throw new ApiError(
+        422,
+        "validation_failed",
+        "O horário de início deve ser em intervalos de 30 minutos (ex.: 19:00 ou 19:30).",
+        { field: "startTime" },
+      );
+    }
+    startTime = raw;
+  }
   let pairs = null;
   if (mode === "duplas_fixas") {
     const rawPairs = body?.pairs;
@@ -246,7 +261,7 @@ export function validateSuper8(body) {
       });
     });
   }
-  return { name, size, mode, players, pairs };
+  return { name, size, mode, players, pairs, startTime };
 }
 
 // TASK-39 — quadras do torneio (TASK-43: sem horário).
@@ -265,6 +280,50 @@ export function validateSuper8Courts(body) {
     );
   }
   return { courtIds: [...new Set(courtIds.map((id) => String(id).trim()))] };
+}
+
+// TASKS-13 / TASK-54 — criação de torneio tradicional.
+export function validateTournament(body) {
+  const name = text(body?.name, "name", { min: 3, max: 80 });
+  let date = null;
+  if (body?.date) {
+    const parsed = new Date(body.date);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new ApiError(422, "validation_failed", "Informe uma data válida.", {
+        field: "date",
+      });
+    }
+    date = parsed.toISOString();
+  }
+  const registrationType = String(body?.registrationType ?? "").trim();
+  if (!["individual", "dupla"].includes(registrationType)) {
+    throw new ApiError(
+      422,
+      "validation_failed",
+      "Escolha o tipo de inscrição: individual ou em dupla.",
+      { field: "registrationType" },
+    );
+  }
+  const genderCategory = String(body?.genderCategory ?? "all").trim();
+  if (!GENDER_CATEGORIES.has(genderCategory)) {
+    throw new ApiError(
+      422,
+      "validation_failed",
+      "Escolha uma categoria de gênero válida.",
+      { field: "genderCategory" },
+    );
+  }
+  const levelMin = level(body?.levelMin ?? 0.5, "levelMin");
+  const levelMax = level(body?.levelMax ?? 7, "levelMax");
+  if (levelMin > levelMax) {
+    throw new ApiError(
+      422,
+      "validation_failed",
+      "A faixa de nível é inválida.",
+      { field: "levelMin" },
+    );
+  }
+  return { name, date, registrationType, genderCategory, levelMin, levelMax };
 }
 
 // TASKS-12 / TASK-44 — placar de um jogo do Super 8.
@@ -393,6 +452,30 @@ export function validateLogin(body) {
   };
 }
 
+// TASKS-14 / TASK-58 — telefone brasileiro: DDD + número (10 ou 11
+// dígitos). Aceita máscara "(11) 91234-5678" e normaliza para dígitos.
+export function phone(value, field = "phone", { required = true } = {}) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  if (!digits) {
+    if (!required) return null;
+    throw new ApiError(
+      422,
+      "validation_failed",
+      "Informe um telefone com DDD.",
+      { field },
+    );
+  }
+  if (digits.length < 10 || digits.length > 11) {
+    throw new ApiError(
+      422,
+      "validation_failed",
+      "Informe um telefone válido com DDD (10 ou 11 dígitos).",
+      { field },
+    );
+  }
+  return digits;
+}
+
 export function validateRegistration(body) {
   const role = body.role;
   if (role !== "player" && role !== "club") {
@@ -417,6 +500,9 @@ export function validateRegistration(body) {
         firstName: text(body.firstName, "firstName", { max: 60 }),
         lastName: text(body.lastName, "lastName", { max: 80 }),
         city: text(body.city, "city", { max: 100 }),
+        // TASK-58: telefone obrigatório no cadastro para futura
+        // verificação por SMS.
+        phone: phone(body.phone),
         level: "Iniciante",
         levelAssessmentCompleted: false,
       },
@@ -431,6 +517,7 @@ export function validateRegistration(body) {
       }),
       arenaName: text(body.arenaName, "arenaName", { max: 120 }),
       cnpj: text(body.cnpj, "cnpj", { min: 14, max: 24 }),
+      phone: phone(body.phone),
     },
   };
 }
@@ -443,6 +530,14 @@ export function validateClubProfile(body) {
     phone: optionalText(body.phone, "phone", { min: 7, max: 40 }) ?? "",
     address: text(body.address, "address", { min: 5, max: 240 }),
     photoUrl: optionalImageUrl(body.photoUrl, "photoUrl", "clubs") ?? "",
+  };
+}
+
+// TASKS-13 / TASK-51 — nova arena (unidade) do clube.
+export function validateArena(body) {
+  return {
+    name: text(body?.name, "name", { min: 3, max: 80 }),
+    address: text(body?.address, "address", { min: 5, max: 160 }),
   };
 }
 
@@ -492,6 +587,9 @@ export function validateCourt(body) {
     closeTime,
     slotDuration,
     photoUrl: optionalImageUrl(body.photoUrl, "photoUrl", "courts") ?? "",
+    // TASK-51: quadra pode pertencer a uma arena adicional do clube
+    // (ausente = arena principal).
+    arenaId: optionalText(body.arenaId, "arenaId", { min: 1, max: 80 }),
   };
 }
 
@@ -595,6 +693,11 @@ export function validatePlayerProfile(body) {
       body.city === undefined
         ? undefined
         : text(body.city, "city", { max: 100 }),
+    // TASK-58: telefone editável depois do cadastro
+    phone:
+      body.phone === undefined
+        ? undefined
+        : phone(body.phone, "phone", { required: false }),
     preferredSide: optionalChoice(
       body.preferredSide,
       "preferredSide",

@@ -23,6 +23,7 @@
   const state = {
     session: null,
     club: null,
+    arenas: [],
     courts: [],
     bookings: [],
     finance: null,
@@ -103,7 +104,12 @@
     $(".app-nav")?.classList.remove("menu-open");
     scrollTo({ top: 0, behavior: "smooth" });
     if (name === "finance") loadFinance();
-    if (name === "super8") loadSuper8();
+    // TASKS-14 / TASK-64: Super 8 e Torneios vivem juntos em uma área só
+    if (name === "tournaments-super8") {
+      setTs8Section(ts8State.section);
+      loadSuper8();
+      loadTournaments();
+    }
   }
 
   function switchManageView(name) {
@@ -117,6 +123,33 @@
     if (name === "reservations") loadBookings();
   }
 
+
+  /* ========= TASKS-14 / TASK-64 — sub-navegação Torneios/Super8 ======== */
+
+  const ts8State = { section: "super8" };
+
+  function setTs8Section(name) {
+    ts8State.section = name;
+    $$("[data-ts8-tab]").forEach((button) => {
+      const active = button.dataset.ts8Tab === name;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    $$("[data-ts8-section]").forEach((section) => {
+      section.classList.toggle(
+        "ts8-hidden",
+        section.dataset.ts8Section !== name,
+      );
+    });
+  }
+
+  function setupTs8Subnav() {
+    $$("[data-ts8-tab]").forEach((button) =>
+      button.addEventListener("click", () =>
+        setTs8Section(button.dataset.ts8Tab),
+      ),
+    );
+  }
 
   /* ================= TASKS-09 — Super 8 ================= */
 
@@ -145,11 +178,78 @@
     const progress = tournament.gamesTotal
       ? `${tournament.gamesFinished}/${tournament.gamesTotal} jogos`
       : `${tournament.players.length}/${tournament.size} jogadores`;
+    const startTimeLabel = tournament.startTime
+      ? ` · Início às ${tournament.startTime}`
+      : "";
     return `<article class="super8-card card-hover" data-super8-open="${escapeHTML(tournament.id)}" tabindex="0" role="button" aria-label="Abrir torneio ${escapeHTML(tournament.name)}">
-      <div class="match-top"><span class="status-badge super8-status-${escapeHTML(tournament.status)}">${escapeHTML(statusLabel)}</span><span class="match-date">${escapeHTML(progress)}</span></div>
+      <div class="match-top"><span class="status-badge super8-status-${escapeHTML(tournament.status)}">${escapeHTML(statusLabel)}</span><span class="match-date">${escapeHTML(progress + startTimeLabel)}</span></div>
       <h3>${escapeHTML(tournament.name)}</h3>
       <div class="match-detail"><div><small>Formato</small><strong>Super ${tournament.size}</strong></div><div><small>Modalidade</small><strong>${escapeHTML(modeLabel)}</strong></div><div><small>Jogos</small><strong>${tournament.gamesTotal || "—"}</strong></div></div>
     </article>`;
+  }
+
+  // TASK-51 — arenas adicionais do clube.
+  async function loadArenas() {
+    try {
+      const data = await apiRequest("/api/v1/club/arenas");
+      state.arenas = data.arenas || [];
+    } catch {
+      state.arenas = [];
+    }
+    renderArenaSelect();
+  }
+
+  // seletor de arena no formulário de quadra (aparece só com arenas extras)
+  function renderArenaSelect() {
+    const wrapper = $("[data-court-arena-wrapper]");
+    const select = $("[data-court-arena-select]");
+    if (!wrapper || !select) return;
+    if (!state.arenas.length) {
+      wrapper.classList.add("hidden");
+      select.innerHTML = "";
+      return;
+    }
+    wrapper.classList.remove("hidden");
+    select.innerHTML =
+      `<option value="">${escapeHTML(state.club?.name || "Arena principal")}</option>` +
+      state.arenas
+        .map(
+          (arena) =>
+            `<option value="${escapeHTML(arena.id)}">${escapeHTML(arena.name)}</option>`,
+        )
+        .join("");
+  }
+
+  function openArenaModal() {
+    const form = $("[data-arena-form]");
+    form.reset();
+    openModal($("[data-arena-modal]"));
+    requestAnimationFrame(() => form.elements.name.focus());
+  }
+
+  async function saveArena(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!form.checkValidity()) return form.reportValidity();
+    const button = $("[data-arena-submit]", form);
+    button.disabled = true;
+    try {
+      await apiRequest("/api/v1/club/arenas", {
+        method: "POST",
+        body: {
+          name: form.elements.name.value.trim(),
+          address: form.elements.address.value.trim(),
+        },
+      });
+      closeModal($("[data-arena-modal]"));
+      showToast("Arena criada. Cadastre quadras vinculadas a ela.");
+      await loadArenas();
+      renderArena();
+    } catch (error) {
+      showToast(error.message);
+    } finally {
+      button.disabled = false;
+    }
   }
 
   async function loadSuper8() {
@@ -394,6 +494,8 @@
           mode: super8Mode(),
           players: super8State.players,
           ...(pairs ? { pairs } : {}),
+          // TASK-59: horário de início do EVENTO (convocação)
+          startTime: form.elements.startTime.value || null,
         },
       });
       await apiRequest(
@@ -491,7 +593,9 @@
     ) {
       primaryAction = `<button class="button button-primary button-block" type="button" data-super8-open-registrations>Abrir inscrições (${tournament.size - tournament.players.length} vagas)</button>`;
     } else if (tournament.status === "inscricoes_abertas") {
-      primaryAction = `<p class="profile-data-note">Inscrições abertas — ${tournament.players.length}/${tournament.size} jogadores confirmados. A geração dos confrontos libera quando o quadro completar.</p>`;
+      // TASK-63: clube acompanha inscrições (manuais + espontâneas) e pode
+      // fechar quando quiser; gerar continua exigindo o número exato.
+      primaryAction = `<p class="profile-data-note">Inscrições abertas — ${tournament.players.length}/${tournament.size} jogadores confirmados. A geração dos confrontos libera quando o quadro completar.</p><button class="button button-outline button-block" type="button" data-super8-close-registrations>Fechar inscrições agora</button>`;
     } else if (
       tournament.status === "em_configuracao" &&
       tournament.players.length === tournament.size &&
@@ -500,9 +604,20 @@
       primaryAction =
         '<button class="button button-primary button-block shine" type="button" data-super8-generate>Gerar confrontos</button>';
     }
+    const rosterPanel = ["em_configuracao", "inscricoes_abertas"].includes(
+      tournament.status,
+    )
+      ? `<div class="super8-section"><p class="micro-label">Jogadores (${tournament.players.length}/${tournament.size})</p>${
+          tournament.players.length
+            ? `<div class="super8-player-chips">${tournament.players.map((player) => `<span class="super8-chip">${escapeHTML(player.name)}${player.id ? "" : ' <em title="Convidado sem conta">convidado</em>'}</span>`).join("")}</div>`
+            : '<p class="profile-data-note">Nenhum jogador ainda.</p>'
+        }</div>`
+      : "";
 
     $("[data-super8-detail-content]").innerHTML = `
+      ${tournament.startTime ? `<p class="super8-start-time">Início às <strong>${escapeHTML(tournament.startTime)}</strong></p>` : ""}
       <div class="match-detail super8-meta"><div><small>Status</small><strong>${escapeHTML(statusLabel)}</strong></div><div><small>Formato</small><strong>Super ${tournament.size}</strong></div><div><small>Modalidade</small><strong>${escapeHTML(modeLabel)}</strong></div><div><small>Jogadores</small><strong>${tournament.players.length}/${tournament.size}</strong></div></div>
+      ${rosterPanel}
       ${games.length ? `<div class="super8-progress"><div class="super8-progress-head"><span>${finished.length} de ${games.length} jogos finalizados</span><strong>${progressPercent}%</strong></div><div class="confidence-bar" aria-hidden="true"><span style="width:${progressPercent}%"></span></div></div>` : ""}
       ${super8StandingsTable(tournament)}
       ${waiting.length ? `<div class="super8-section"><p class="micro-label">Aguardando resultado (${waiting.length})</p><div class="super8-games">${waiting.map((game) => super8GameCard(game, tournament)).join("")}</div></div>` : ""}
@@ -515,6 +630,10 @@
     $("[data-super8-open-registrations]")?.addEventListener(
       "click",
       openSuper8Registrations,
+    );
+    $("[data-super8-close-registrations]")?.addEventListener(
+      "click",
+      closeSuper8Registrations,
     );
     $$("[data-super8-result]").forEach((button) =>
       button.addEventListener("click", () =>
@@ -547,6 +666,18 @@
       await callSuper8Action(
         "open-registrations",
         "Inscrições abertas — os jogadores já podem se inscrever.",
+      );
+    } catch (error) {
+      showToast(error.message);
+    }
+  }
+
+  // TASK-63 — fecha inscrições a qualquer momento (volta a configuração).
+  async function closeSuper8Registrations() {
+    try {
+      await callSuper8Action(
+        "close-registrations",
+        "Inscrições fechadas.",
       );
     } catch (error) {
       showToast(error.message);
@@ -662,6 +793,282 @@
     );
   }
 
+
+  /* ================= TASKS-13 — Torneios (grupos + mata-mata) ========== */
+
+  const tournamentState = { tournaments: [], current: null, currentGameId: null };
+
+  const TOURNAMENT_STATUS_LABELS = {
+    inscricoes_abertas: "Inscrições abertas",
+    em_andamento: "Em andamento",
+    finalizado: "Finalizado",
+  };
+  const TOURNAMENT_GENDER_LABELS = {
+    all: "Todos os jogadores",
+    women_only: "Apenas Mulheres",
+    men_only: "Apenas Homens",
+    mixed: "Misto",
+  };
+
+  function tournamentCard(tournament) {
+    const statusLabel =
+      TOURNAMENT_STATUS_LABELS[tournament.status] || tournament.status;
+    const meta =
+      tournament.status === "inscricoes_abertas"
+        ? `${tournament.registrationsCount} ${tournament.registrationsCount === 1 ? "inscrição" : "inscrições"}`
+        : `${tournament.gamesFinished}/${tournament.gamesTotal} jogos`;
+    return `<article class="super8-card card-hover" data-tournament-open="${escapeHTML(tournament.id)}" tabindex="0" role="button" aria-label="Abrir torneio ${escapeHTML(tournament.name)}">
+      <div class="match-top"><span class="status-badge super8-status-${escapeHTML(tournament.status)}">${escapeHTML(statusLabel)}</span><span class="match-date">${escapeHTML(meta)}</span></div>
+      <h3>${escapeHTML(tournament.name)}</h3>
+      <div class="match-detail"><div><small>Inscrição</small><strong>${tournament.registrationType === "dupla" ? "Em dupla" : "Individual"}</strong></div><div><small>Categoria</small><strong>${escapeHTML(TOURNAMENT_GENDER_LABELS[tournament.genderCategory])}</strong></div><div><small>Nível</small><strong>${Number(tournament.levelMin).toLocaleString("pt-BR")}–${Number(tournament.levelMax).toLocaleString("pt-BR")}</strong></div></div>
+    </article>`;
+  }
+
+  async function loadTournaments() {
+    const grid = $("[data-tournament-grid]");
+    if (!grid) return;
+    try {
+      const data = await apiRequest("/api/v1/club/tournaments");
+      tournamentState.tournaments = data.tournaments;
+      grid.innerHTML = data.tournaments.length
+        ? data.tournaments.map(tournamentCard).join("")
+        : `<p class="profile-data-note">Nenhum torneio criado ainda. Clique em "Criar novo torneio" para abrir as inscrições do primeiro.</p>`;
+      $$("[data-tournament-open]", grid).forEach((card) => {
+        const open = () => openTournamentDetail(card.dataset.tournamentOpen);
+        card.addEventListener("click", open);
+        card.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            open();
+          }
+        });
+      });
+    } catch (error) {
+      grid.innerHTML = `<p class="profile-data-note">${escapeHTML(error.message)}</p>`;
+    }
+  }
+
+  function renderTournamentCourts() {
+    const container = $("[data-tournament-courts]");
+    container.innerHTML = state.courts.length
+      ? state.courts
+          .filter((court) => court.active !== false)
+          .map(
+            (court) =>
+              `<label class="super8-court-option"><input type="checkbox" name="courtIds" value="${escapeHTML(court.id)}" /><span>${escapeHTML(court.name)}</span></label>`,
+          )
+          .join("")
+      : '<p class="profile-data-note">Cadastre ao menos uma quadra na aba "Minhas arenas".</p>';
+  }
+
+  function openTournamentCreate() {
+    const form = $("[data-tournament-form]");
+    form.reset();
+    $("[data-tournament-form-note]").textContent = "";
+    renderTournamentCourts();
+    openModal($("[data-tournament-create-modal]"));
+  }
+
+  async function submitTournament(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const note = $("[data-tournament-form-note]");
+    note.textContent = "";
+    const courtIds = $$('[data-tournament-courts] input:checked', form).map(
+      (input) => input.value,
+    );
+    if (!courtIds.length) {
+      note.textContent = "Selecione ao menos uma quadra para o torneio.";
+      return;
+    }
+    const button = $("[data-tournament-submit]", form);
+    button.disabled = true;
+    try {
+      const dateRaw = form.elements.date.value;
+      const { tournament } = await apiRequest("/api/v1/club/tournaments", {
+        method: "POST",
+        body: {
+          name: form.elements.name.value,
+          ...(dateRaw ? { date: new Date(dateRaw).toISOString() } : {}),
+          registrationType: form.elements.registrationType.value,
+          genderCategory: form.elements.genderCategory.value,
+          levelMin: Number(form.elements.levelMin.value),
+          levelMax: Number(form.elements.levelMax.value),
+        },
+      });
+      await apiRequest(
+        `/api/v1/club/tournaments/${encodeURIComponent(tournament.id)}/courts`,
+        { method: "PATCH", body: { courtIds } },
+      );
+      closeModal($("[data-tournament-create-modal]"));
+      showToast("Torneio criado — inscrições abertas para os jogadores.");
+      await loadTournaments();
+      openTournamentDetail(tournament.id);
+    } catch (error) {
+      note.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function tournamentGameCard(game, tournament) {
+    const finished = game.status === "finalizado";
+    const editable = tournament.status === "em_andamento";
+    const action = !finished
+      ? editable
+        ? `<button class="button button-primary" type="button" data-tournament-result="${escapeHTML(game.id)}">Lançar resultado</button>`
+        : '<span class="status-badge">Aguardando</span>'
+      : `<div class="super8-game-score"><strong>${game.score.team1Games} × ${game.score.team2Games}</strong><span class="status-badge super8-status-finalizado">Finalizado</span></div>`;
+    const phaseChip =
+      game.phase === "grupos"
+        ? `${tournament.groups[game.groupIndex]?.name ?? "Grupo"}`
+        : game.phase;
+    return `<article class="super8-game-card${finished ? " finished" : ""}">
+      <div class="super8-game-head"><span class="super8-court-chip">${escapeHTML(phaseChip)} · ${escapeHTML(game.court.name)}</span></div>
+      <div class="super8-versus"><div class="super8-side"><strong>${escapeHTML(game.team1.names.join(" + "))}</strong></div><span class="super8-x" aria-hidden="true">×</span><div class="super8-side right"><strong>${escapeHTML(game.team2.names.join(" + "))}</strong></div></div>
+      <div class="super8-game-action">${action}</div>
+    </article>`;
+  }
+
+  function tournamentGroupsTables(tournament) {
+    if (!tournament.groups.length) return "";
+    const pairNames = (pairId) =>
+      tournament.pairs.find((pair) => pair.id === pairId)?.names.join(" + ") ??
+      "—";
+    return `<div class="tournament-groups">${tournament.groups
+      .map(
+        (group) =>
+          `<div class="tournament-group"><p class="micro-label">${escapeHTML(group.name)}</p><table class="level-bands-table super8-table"><thead><tr><th scope="col">Dupla</th><th scope="col">V</th><th scope="col">J</th><th scope="col">Saldo</th></tr></thead><tbody>${group.standings
+            .map(
+              (row) =>
+                `<tr${row.position <= 2 ? ' class="current-band"' : ""}><td>${escapeHTML(pairNames(row.pairId))}</td><td>${row.wins}</td><td>${row.played}</td><td>${row.balance > 0 ? "+" : ""}${row.balance}</td></tr>`,
+            )
+            .join("")}</tbody></table></div>`,
+      )
+      .join("")}</div>`;
+  }
+
+  function tournamentStandingsTable(tournament) {
+    if (!tournament.standings?.length) return "";
+    return `<div class="super8-standings"><p class="micro-label">Classificação final</p><div class="super8-grid-scroll"><table class="level-bands-table super8-table"><thead><tr><th scope="col">Pos.</th><th scope="col">Dupla</th><th scope="col">Campanha</th></tr></thead><tbody>${tournament.standings
+      .map(
+        (row) =>
+          `<tr${row.position === 1 ? ' class="current-band"' : ""}><td>#${row.position}</td><td>${escapeHTML(row.names.join(" + "))}</td><td>${escapeHTML(row.stage)}</td></tr>`,
+      )
+      .join("")}</tbody></table></div></div>`;
+  }
+
+  function openTournamentDetail(id, fresh = null) {
+    const tournament =
+      fresh ||
+      tournamentState.tournaments.find((item) => item.id === id) ||
+      null;
+    if (!tournament) return;
+    tournamentState.current = tournament;
+    $("[data-tournament-detail-title]").textContent = tournament.name;
+    const games = tournament.games || [];
+    const waiting = games.filter((game) => game.status !== "finalizado");
+    const finished = games.filter((game) => game.status === "finalizado");
+    let primary = "";
+    if (tournament.status === "inscricoes_abertas") {
+      primary = `<div class="super8-section"><p class="micro-label">Inscritos (${tournament.registrationsCount})</p>${
+        tournament.registeredPlayers.length
+          ? `<div class="super8-player-chips">${tournament.registeredPlayers.map((player) => `<span class="super8-chip">${escapeHTML(player.name)}</span>`).join("")}</div>`
+          : '<p class="profile-data-note">Nenhuma inscrição ainda.</p>'
+      }<button class="button button-primary button-block shine" type="button" data-tournament-close-registrations>Encerrar inscrições e gerar chaves</button></div>`;
+    }
+    $("[data-tournament-detail-content]").innerHTML = `
+      <div class="match-detail super8-meta"><div><small>Status</small><strong>${escapeHTML(TOURNAMENT_STATUS_LABELS[tournament.status] || tournament.status)}</strong></div><div><small>Inscrição</small><strong>${tournament.registrationType === "dupla" ? "Em dupla" : "Individual"}</strong></div><div><small>Categoria</small><strong>${escapeHTML(TOURNAMENT_GENDER_LABELS[tournament.genderCategory])}</strong></div><div><small>Nível</small><strong>${Number(tournament.levelMin).toLocaleString("pt-BR")}–${Number(tournament.levelMax).toLocaleString("pt-BR")}</strong></div></div>
+      ${primary}
+      ${tournamentStandingsTable(tournament)}
+      ${tournamentGroupsTables(tournament)}
+      ${waiting.length ? `<div class="super8-section"><p class="micro-label">Aguardando resultado (${waiting.length})</p><div class="super8-games">${waiting.map((game) => tournamentGameCard(game, tournament)).join("")}</div></div>` : ""}
+      ${finished.length ? `<div class="super8-section"><p class="micro-label">Finalizados (${finished.length})</p><div class="super8-games">${finished.map((game) => tournamentGameCard(game, tournament)).join("")}</div></div>` : ""}`;
+    $("[data-tournament-close-registrations]")?.addEventListener("click", closeTournamentRegistrations);
+    $$("[data-tournament-result]").forEach((button) =>
+      button.addEventListener("click", () =>
+        openTournamentResultForm(button.dataset.tournamentResult),
+      ),
+    );
+    openModal($("[data-tournament-detail-modal]"));
+  }
+
+  async function closeTournamentRegistrations(event) {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      const { tournament } = await apiRequest(
+        `/api/v1/club/tournaments/${encodeURIComponent(tournamentState.current.id)}/close-registrations`,
+        { method: "POST" },
+      );
+      showToast("Chaves geradas — fase de grupos pronta.");
+      await loadTournaments();
+      openTournamentDetail(tournament.id, tournament);
+    } catch (error) {
+      showToast(error.message);
+      button.disabled = false;
+    }
+  }
+
+  function openTournamentResultForm(gameId) {
+    const game = (tournamentState.current?.games || []).find(
+      (item) => item.id === gameId,
+    );
+    if (!game) return;
+    tournamentState.currentGameId = gameId;
+    const modal = $("[data-tournament-result-modal]");
+    const form = $("[data-tournament-result-form]", modal);
+    form.reset();
+    $("[data-tournament-result-team1]", modal).textContent =
+      game.team1.names.join(" + ");
+    $("[data-tournament-result-team2]", modal).textContent =
+      game.team2.names.join(" + ");
+    openModal(modal);
+  }
+
+  async function submitTournamentResult(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = $("[data-tournament-result-submit]", form);
+    button.disabled = true;
+    try {
+      const { tournament } = await apiRequest(
+        `/api/v1/club/tournaments/${encodeURIComponent(tournamentState.current.id)}/games/${encodeURIComponent(tournamentState.currentGameId)}/result`,
+        {
+          method: "POST",
+          body: {
+            team1Games: Number(form.elements.team1Games.value),
+            team2Games: Number(form.elements.team2Games.value),
+          },
+        },
+      );
+      closeModal($("[data-tournament-result-modal]"));
+      showToast(
+        tournament.status === "finalizado"
+          ? "Final decidida — classificação final gerada!"
+          : "Placar salvo.",
+      );
+      await loadTournaments();
+      openTournamentDetail(tournament.id, tournament);
+    } catch (error) {
+      showToast(error.message);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function setupTournaments() {
+    $("[data-tournament-create-open]")?.addEventListener(
+      "click",
+      openTournamentCreate,
+    );
+    $("[data-tournament-form]")?.addEventListener("submit", submitTournament);
+    $("[data-tournament-result-form]")?.addEventListener(
+      "submit",
+      submitTournamentResult,
+    );
+  }
+
   function setupTabs() {
     $$("[data-owner-tab]").forEach((button) =>
       button.addEventListener("click", () =>
@@ -703,9 +1110,25 @@
     return `<article class="owner-arena-card card-hover" data-owner-arena tabindex="0"><div class="owner-arena-art">${artwork}</div><div class="owner-arena-info"><span class="status-open"><i></i> ${club.status === "active" ? "Arena ativa" : "Arena inativa"}</span><h3>${escapeHTML(club.name)}</h3><p>${state.courts.length ? "Visível para jogadores" : "Cadastre uma quadra para publicar a arena"}</p><div class="arena-mini-stats"><span><small>Quadras</small><strong>${state.courts.length}</strong></span><span><small>Reservas</small><strong>${state.bookings.length}</strong></span><span><small>Receita paga</small><strong>${escapeHTML(formatCurrency(state.session.summary.monthlyRevenue))}</strong></span></div></div></article>`;
   }
 
+  // TASK-51: card das arenas adicionais (unidades extras do clube).
+  function extraArenaCard(arena) {
+    const courtsCount = state.courts.filter(
+      (court) => court.arenaId === arena.id,
+    ).length;
+    return `<article class="owner-arena-card card-hover" data-owner-arena data-arena-id="${escapeHTML(arena.id)}" tabindex="0"><div class="owner-arena-art"><div class="club-cover-art"></div></div><div class="owner-arena-info"><span class="status-open"><i></i> Arena ativa</span><h3>${escapeHTML(arena.name)}</h3><p>${escapeHTML(arena.address)}</p><div class="arena-mini-stats"><span><small>Quadras</small><strong>${courtsCount}</strong></span></div></div></article>`;
+  }
+
   function renderArena() {
-    $("[data-owner-arena-grid]").innerHTML = arenaCard();
-    const card = $("[data-owner-arena]");
+    $("[data-owner-arena-grid]").innerHTML =
+      arenaCard() + state.arenas.map(extraArenaCard).join("");
+    $$("[data-owner-arena][data-arena-id]").forEach((extraCard) => {
+      const open = () => openManagement();
+      extraCard.addEventListener("click", open);
+      extraCard.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") open();
+      });
+    });
+    const card = $("[data-owner-arena]:not([data-arena-id])");
     const open = () => openManagement();
     card.addEventListener("click", open);
     card.addEventListener("keydown", (event) => {
@@ -841,6 +1264,7 @@
 
   function openCourtCreator() {
     configureCourtForm();
+    setUploadFeedback("court");
     openModal($("[data-court-modal]"));
     requestAnimationFrame(() => $("[data-court-form] [name='name']")?.focus());
   }
@@ -849,6 +1273,7 @@
     const court = state.courts.find((item) => item.id === courtId);
     if (!court) return;
     configureCourtForm(court);
+    setUploadFeedback("court");
     openModal($("[data-court-modal]"));
     requestAnimationFrame(() => $("[data-court-form] [name='name']")?.focus());
   }
@@ -861,6 +1286,7 @@
     );
     if (!file) {
       setCourtPhotoPreview(court?.photoUrl, court?.name);
+      setUploadFeedback("court");
       return;
     }
     try {
@@ -870,11 +1296,43 @@
         state.courtPreviewObjectUrl,
         $("[data-court-form]").elements.name.value,
       );
+      setUploadFeedback("court", { selected: true });
     } catch (error) {
+      // TASK-65: erro exibido junto do preview, sem manter o arquivo
       event.currentTarget.value = "";
       setCourtPhotoPreview(court?.photoUrl, court?.name);
+      setUploadFeedback("court", { error: error.message });
       showToast(error.message);
     }
+  }
+
+  // TASKS-15 / TASK-65 — feedback padrão das áreas de upload do clube.
+  function setUploadFeedback(kind, { error = "", selected = false } = {}) {
+    const note = $(`[data-${kind}-photo-error]`);
+    if (note) {
+      note.textContent = error;
+      note.classList.toggle("hidden", !error);
+    }
+    $(`[data-${kind}-photo-clear]`)?.classList.toggle("hidden", !selected);
+  }
+
+  function clearSelectedCourtPhoto() {
+    const input = $("[data-court-photo-input]");
+    if (input) input.value = "";
+    clearCourtPhotoObjectUrl();
+    const court = state.courts.find(
+      (item) => item.id === state.editingCourtId,
+    );
+    setCourtPhotoPreview(court?.photoUrl, court?.name);
+    setUploadFeedback("court");
+  }
+
+  function clearSelectedClubPhoto() {
+    const input = $("[data-club-photo-input]");
+    if (input) input.value = "";
+    clearClubPhotoObjectUrl();
+    setClubPhotoPreview(state.club?.photoUrl, state.club?.name);
+    setUploadFeedback("club");
   }
 
   async function saveCourt(event) {
@@ -893,6 +1351,8 @@
       openTime: values.openTime,
       closeTime: values.closeTime,
       slotDuration: Number(values.slotDuration),
+      // TASK-51: vazio = arena principal
+      arenaId: values.arenaId || "",
     };
     if (
       timeToMinutes(body.closeTime) - timeToMinutes(body.openTime) <
@@ -1018,6 +1478,10 @@
     populateHalfHourSelect($("[data-court-open-time]"), "06:00");
     populateHalfHourSelect($("[data-court-close-time]"), "23:00");
     $("[data-add-court]")?.addEventListener("click", openCourtCreator);
+    $("[data-court-photo-clear]")?.addEventListener(
+      "click",
+      clearSelectedCourtPhoto,
+    );
     $("[data-court-photo-input]")?.addEventListener(
       "change",
       previewCourtPhoto,
@@ -1136,6 +1600,7 @@
     clearClubPhotoObjectUrl();
     if (!file) {
       setClubPhotoPreview(state.club?.photoUrl, state.club?.name);
+      setUploadFeedback("club");
       return;
     }
     try {
@@ -1145,9 +1610,11 @@
         state.clubPreviewObjectUrl,
         $("[data-setting-name]").value,
       );
+      setUploadFeedback("club", { selected: true });
     } catch (error) {
       event.currentTarget.value = "";
       setClubPhotoPreview(state.club?.photoUrl, state.club?.name);
+      setUploadFeedback("club", { error: error.message });
       showToast(error.message);
     }
   }
@@ -1156,6 +1623,10 @@
     $("[data-club-photo-input]")?.addEventListener(
       "change",
       previewClubPhoto,
+    );
+    $("[data-club-photo-clear]")?.addEventListener(
+      "click",
+      clearSelectedClubPhoto,
     );
     $("[data-club-settings-form]")?.addEventListener(
       "submit",
@@ -1952,6 +2423,13 @@
   async function initialize() {
     setupTabs();
     setupSuper8();
+    setupTournaments();
+    setupTs8Subnav();
+    setTs8Section("super8");
+    // TASK-51: botão "Adicionar arena" (antes sem listener — botão morto).
+    $("[data-add-arena]")?.addEventListener("click", openArenaModal);
+    $("[data-arena-form]")?.addEventListener("submit", saveArena);
+    loadArenas();
     setupCourtModal();
     setupBookingActions();
     setupClubSettings();

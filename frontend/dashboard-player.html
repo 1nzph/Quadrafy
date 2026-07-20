@@ -54,6 +54,9 @@
             aria-label="Partidas aguardando lançamento de resultado"
           ></span>
         </button>
+        <button type="button" data-player-tab="tournaments-super8">
+          Torneios/Super8
+        </button>
         <button type="button" data-player-tab="ranking">Ranking</button>
         <button type="button" data-player-tab="profile">Perfil</button>
       </nav>
@@ -271,21 +274,15 @@
               </select>
             </label>
           </div>
-          <button
-            class="super8-entry"
-            type="button"
-            data-super8-entry
-            aria-label="Abrir torneios Super 8"
+          <section
+            class="my-matches-section hidden"
+            data-my-matches-section
+            aria-labelledby="my-matches-title"
           >
-            <div>
-              <p class="micro-label">Torneios de rotação</p>
-              <strong>Super 8</strong>
-              <span data-super8-entry-note
-                >Veja seus torneios e inscrições abertas</span
-              >
-            </div>
-            <span class="super8-entry-arrow" aria-hidden="true">→</span>
-          </button>
+            <p class="micro-label" id="my-matches-title">Meus jogos</p>
+            <div class="match-grid" data-my-matches-grid></div>
+          </section>
+          <p class="micro-label match-available-label">Disponíveis para entrar</p>
           <div class="match-grid" data-match-grid></div>
         </div>
       </section>
@@ -304,6 +301,68 @@
           </div>
           <div class="match-grid" data-history-grid>
             <p class="profile-data-note">Carregando histórico…</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="app-view" data-player-view="tournaments-super8">
+        <div class="app-container">
+          <div class="app-heading">
+            <div>
+              <p class="eyebrow dark">Competições do seu clube</p>
+              <h1>Torneios/<em>Super8.</em></h1>
+              <p>
+                Inscreva-se e acompanhe seus torneios de rotação (Super 8) e
+                os torneios com grupos e mata-mata.
+              </p>
+            </div>
+          </div>
+          <div class="ts8-subnav" role="tablist" aria-label="Torneios e Super 8">
+            <button
+              class="active"
+              type="button"
+              data-pts8-tab="super8"
+              role="tab"
+              aria-selected="true"
+            >
+              Super 8
+            </button>
+            <button
+              type="button"
+              data-pts8-tab="tournaments"
+              role="tab"
+              aria-selected="false"
+            >
+              Torneios
+            </button>
+          </div>
+          <div data-pts8-panel="super8">
+            <div class="super8-section">
+              <p class="micro-label">Meus Super 8</p>
+              <div data-super8-mine-list>
+                <p class="profile-data-note">Carregando…</p>
+              </div>
+            </div>
+            <div class="super8-section">
+              <p class="micro-label">Abertos para inscrição</p>
+              <div data-super8-open-list>
+                <p class="profile-data-note">Carregando…</p>
+              </div>
+            </div>
+          </div>
+          <div data-pts8-panel="tournaments" class="ts8-hidden">
+            <div class="super8-section">
+              <p class="micro-label">Meus torneios</p>
+              <div data-tournament-mine-list>
+                <p class="profile-data-note">Carregando…</p>
+              </div>
+            </div>
+            <div class="super8-section">
+              <p class="micro-label">Abertos para inscrição</p>
+              <div data-tournament-open-list>
+                <p class="profile-data-note">Carregando…</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -460,6 +519,10 @@
               </div>
               <dl>
                 <div>
+                  <dt>Telefone</dt>
+                  <dd data-profile-phone-value>—</dd>
+                </div>
+                <div>
                   <dt>Gênero</dt>
                   <dd data-profile-gender-value>—</dd>
                 </div>
@@ -574,6 +637,29 @@
           </div>
         </fieldset>
         <div class="open-match-fields hidden" data-open-match-fields>
+          <div class="invite-players-block">
+            <p class="micro-label">Adicionar jogadores agora (opcional)</p>
+            <p class="profile-data-note">
+              Preencha até 3 vagas com jogadores da plataforma — eles entram
+              confirmados. As vagas restantes continuam abertas.
+            </p>
+            <div class="super8-add-row">
+              <label class="input-group">
+                <span>Buscar jogador cadastrado</span>
+                <input
+                  type="search"
+                  data-invite-search
+                  placeholder="Digite ao menos 2 letras"
+                  autocomplete="off"
+                />
+              </label>
+              <div
+                class="super8-search-results hidden"
+                data-invite-search-results
+              ></div>
+            </div>
+            <div class="super8-player-chips" data-invite-chips></div>
+          </div>
           <label class="input-group">
             <span>Categoria</span>
             <select name="genderCategory" data-booking-gender-category>
@@ -1085,6 +1171,17 @@
             </label>
           </div>
           <label class="input-group">
+            <span>Telefone</span>
+            <input
+              type="tel"
+              name="phone"
+              data-phone-mask
+              inputmode="tel"
+              maxlength="16"
+              placeholder="(11) 91234-5678"
+            />
+          </label>
+          <label class="input-group">
             <span>Cidade</span>
             <input
               type="text"
@@ -1170,6 +1267,18 @@
                   data-player-photo-input
                 />
               </label>
+              <button
+                class="photo-clear-button hidden"
+                type="button"
+                data-player-photo-clear
+              >
+                × Remover imagem selecionada
+              </button>
+              <p
+                class="photo-error-note hidden"
+                data-player-photo-error
+                aria-live="polite"
+              ></p>
             </div>
           </div>
           <button

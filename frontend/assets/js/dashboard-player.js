@@ -247,6 +247,10 @@
     if (name === "matches") loadMatches();
     if (name === "ranking") loadRanking();
     if (name === "history") loadHistory();
+    if (name === "tournaments-super8") {
+      openSuper8Screen();
+      openTournamentScreen();
+    }
     if (name === "profile") loadProfileExtras();
   }
 
@@ -580,9 +584,13 @@
   }
 
   function setupBookingModal() {
-    $("[data-open-booking]")?.addEventListener("click", () =>
-      openAccessibleModal($("[data-booking-modal]"), '[name="visibility"]'),
-    );
+    $("[data-open-booking]")?.addEventListener("click", () => {
+      // TASK-60: limpa convidados de aberturas anteriores do modal
+      resetInvitePlayers();
+      openAccessibleModal($("[data-booking-modal]"), '[name="visibility"]');
+    });
+    // TASK-60: busca de jogadores para preencher vagas na criação
+    setupInviteSearch();
     $$('[name="visibility"]').forEach((input) =>
       input.addEventListener("change", () =>
         setVisibilityUI(
@@ -603,6 +611,87 @@
       ),
     );
     $("[data-confirm-booking]")?.addEventListener("click", confirmBooking);
+  }
+
+  /* TASKS-14 / TASK-60 — convidar jogadores já na criação do jogo aberto */
+  const inviteState = { players: [], timer: null };
+
+  function renderInviteChips() {
+    const chips = $("[data-invite-chips]");
+    if (!chips) return;
+    chips.innerHTML = inviteState.players.length
+      ? inviteState.players
+          .map(
+            (player, index) =>
+              `<span class="super8-chip">${escapeHTML(player.name)}<button type="button" data-invite-remove="${index}" aria-label="Remover ${escapeHTML(player.name)}">×</button></span>`,
+          )
+          .join("")
+      : "";
+    $$("[data-invite-remove]", chips).forEach((button) =>
+      button.addEventListener("click", () => {
+        inviteState.players.splice(Number(button.dataset.inviteRemove), 1);
+        renderInviteChips();
+      }),
+    );
+  }
+
+  function resetInvitePlayers() {
+    inviteState.players = [];
+    const search = $("[data-invite-search]");
+    if (search) search.value = "";
+    $("[data-invite-search-results]")?.classList.add("hidden");
+    renderInviteChips();
+  }
+
+  function setupInviteSearch() {
+    const input = $("[data-invite-search]");
+    const results = $("[data-invite-search-results]");
+    if (!input || !results) return;
+    input.addEventListener("input", () => {
+      clearTimeout(inviteState.timer);
+      const query = input.value.trim();
+      if (query.length < 2) {
+        results.classList.add("hidden");
+        return;
+      }
+      inviteState.timer = setTimeout(async () => {
+        try {
+          const data = await apiRequest(
+            `/api/v1/players/search?q=${encodeURIComponent(query)}`,
+          );
+          const myId = state.session?.user?.id;
+          const players = (data.players || []).filter(
+            (player) =>
+              player.id !== myId &&
+              !inviteState.players.some((item) => item.id === player.id),
+          );
+          results.classList.toggle("hidden", !players.length);
+          results.innerHTML = players
+            .map(
+              (player) =>
+                `<button type="button" data-invite-pick="${escapeHTML(player.id)}" data-player-name="${escapeHTML(player.displayName)}"><strong>${escapeHTML(player.displayName)}</strong><small>${player.level !== null ? `Nível ${Number(player.level).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "Sem nível"}</small></button>`,
+            )
+            .join("");
+          $$("[data-invite-pick]", results).forEach((pick) =>
+            pick.addEventListener("click", () => {
+              if (inviteState.players.length >= 3) {
+                showToast("Você pode adicionar no máximo 3 jogadores.");
+                return;
+              }
+              inviteState.players.push({
+                id: pick.dataset.invitePick,
+                name: pick.dataset.playerName,
+              });
+              input.value = "";
+              results.classList.add("hidden");
+              renderInviteChips();
+            }),
+          );
+        } catch {
+          results.classList.add("hidden");
+        }
+      }, 250);
+    });
   }
 
   async function confirmBooking(event) {
@@ -636,6 +725,14 @@
                 levelMax,
                 genderCategory:
                   $("[data-booking-gender-category]")?.value || "all",
+                // TASK-60: convidados confirmados desde a criação
+                ...(inviteState.players.length
+                  ? {
+                      invitedPlayerIds: inviteState.players.map(
+                        (player) => player.id,
+                      ),
+                    }
+                  : {}),
               }
             : {}),
         },
@@ -1167,14 +1264,7 @@
     </article>`;
   }
 
-  function renderMatches() {
-    const grid = $("[data-match-grid]");
-    grid.innerHTML = state.matches.length
-      ? state.matches.map(matchCard).join("")
-      : emptyState(
-          "Nenhum jogo aberto agora.",
-          "Crie uma reserva aberta para convidar outros jogadores.",
-        );
+  function wireMatchCards(grid) {
     $$("[data-match-id]", grid).forEach((card) => {
       const open = () => openMatch(card.dataset.matchId);
       card.addEventListener("click", open);
@@ -1185,6 +1275,34 @@
         }
       });
     });
+  }
+
+  // TASKS-14 / TASK-62 — "Meus jogos" sempre no topo (inclui partidas
+  // cheias, que a TASK-61 esconde da listagem pública), e abaixo a
+  // listagem normal de jogos disponíveis, sem duplicar.
+  function renderMatches() {
+    const myId = state.session?.user?.id;
+    const mine = state.matches.filter((match) =>
+      (match.participantIds ?? []).includes(myId),
+    );
+    const available = state.matches.filter(
+      (match) => !(match.participantIds ?? []).includes(myId),
+    );
+    const mySection = $("[data-my-matches-section]");
+    const myGrid = $("[data-my-matches-grid]");
+    if (mySection && myGrid) {
+      mySection.classList.toggle("hidden", !mine.length);
+      myGrid.innerHTML = mine.map(matchCard).join("");
+      wireMatchCards(myGrid);
+    }
+    const grid = $("[data-match-grid]");
+    grid.innerHTML = available.length
+      ? available.map(matchCard).join("")
+      : emptyState(
+          "Nenhum jogo aberto agora.",
+          "Crie uma reserva aberta para convidar outros jogadores.",
+        );
+    wireMatchCards(grid);
   }
 
   async function loadMatches() {
@@ -1199,7 +1317,6 @@
       renderMatches();
       renderProfile();
       refreshUnreadCounts();
-      refreshSuper8Entry();
     } catch (error) {
       $("[data-match-grid]").innerHTML = emptyState(
         "Não foi possível carregar os jogos.",
@@ -1272,8 +1389,9 @@
     return `<div class="super8-standings"><p class="micro-label">Tabela final</p><div class="super8-grid-scroll"><table class="level-bands-table super8-table"><thead><tr><th scope="col">Pos.</th><th scope="col">${tournament.mode === "duplas_fixas" ? "Dupla" : "Jogador"}</th><th scope="col">Vitórias</th><th scope="col">Jogos</th><th scope="col">Saldo</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
   }
 
+  // TASKS-14 / TASK-64: agora renderiza dentro da área "Torneios/Super8"
+  // (antes era um modal aberto de dentro de "Jogos abertos").
   async function openSuper8Screen() {
-    openAccessibleModal($("[data-super8-player-modal]"), "[data-modal-close]");
     const myId = state.session?.user?.id;
     const mineList = $("[data-super8-mine-list]");
     const openList = $("[data-super8-open-list]");
@@ -1287,7 +1405,7 @@
                   (player) => player.id === myId,
                 ),
               );
-              return `<details class="ranking-category super8-player-card"${index === 0 ? " open" : ""}><summary><span class="ranking-category-title">${escapeHTML(tournament.name)}</span><span class="ranking-category-meta">${escapeHTML(tournament.clubName)} · ${tournament.gamesFinished}/${tournament.gamesTotal} jogos · ${tournament.status === "finalizado" ? "Finalizado" : "Em andamento"}</span></summary>${super8StandingsTable(tournament)}<div class="super8-games">${myGames.map((game) => super8MyGameCard(game, myId)).join("")}</div></details>`;
+              return `<details class="ranking-category super8-player-card"${index === 0 ? " open" : ""}><summary><span class="ranking-category-title">${escapeHTML(tournament.name)}</span><span class="ranking-category-meta">${escapeHTML(tournament.clubName)}${tournament.startTime ? ` · Início às ${escapeHTML(tournament.startTime)}` : ""} · ${tournament.gamesFinished}/${tournament.gamesTotal} jogos · ${tournament.status === "finalizado" ? "Finalizado" : "Em andamento"}</span></summary>${super8StandingsTable(tournament)}<div class="super8-games">${myGames.map((game) => super8MyGameCard(game, myId)).join("")}</div></details>`;
             })
             .join("")
         : '<p class="profile-data-note">Você ainda não participa de nenhum Super 8.</p>';
@@ -1329,28 +1447,179 @@
     }
   }
 
-  async function refreshSuper8Entry() {
-    const note = $("[data-super8-entry-note]");
-    if (!note) return;
+
+  /* ============ TASKS-13 / TASK-55 — Torneios (lado do jogador) ======== */
+
+  const TOURNAMENT_GENDER_LABELS = {
+    all: "Todos",
+    women_only: "Só mulheres",
+    men_only: "Só homens",
+    mixed: "Misto",
+  };
+
+  function tournamentMyGameCard(game, tournament, myId) {
+    const isMine = [
+      ...(game.team1.players ?? []),
+      ...(game.team2.players ?? []),
+    ].some((player) => player.id === myId);
+    const finished = game.status === "finalizado";
+    const phaseChip =
+      game.phase === "grupos"
+        ? (tournament.groups[game.groupIndex]?.name ?? "Grupo")
+        : game.phase;
+    return `<article class="super8-game-card${finished ? " finished" : ""}${isMine ? " mine" : ""}">
+      <div class="super8-game-head"><span class="super8-court-chip">${escapeHTML(phaseChip)} · ${escapeHTML(game.court.name)}</span></div>
+      <div class="super8-versus"><div class="super8-side"><strong>${escapeHTML(game.team1.names.join(" + "))}</strong></div><span class="super8-x" aria-hidden="true">×</span><div class="super8-side right"><strong>${escapeHTML(game.team2.names.join(" + "))}</strong></div></div>
+      <div class="super8-game-action">${finished ? `<strong class="super8-my-score">${game.score.team1Games} × ${game.score.team2Games}</strong>` : '<span class="status-badge">Aguardando</span>'}</div>
+    </article>`;
+  }
+
+  function tournamentGroupTable(tournament, myPairId) {
+    const pairNames = (pairId) =>
+      tournament.pairs.find((pair) => pair.id === pairId)?.names.join(" + ") ??
+      "—";
+    return tournament.groups
+      .map(
+        (group) =>
+          `<div class="tournament-group"><p class="micro-label">${escapeHTML(group.name)}</p><table class="level-bands-table super8-table"><tbody>${group.standings
+            .map(
+              (row) =>
+                `<tr${row.pairId === myPairId ? ' class="current-band"' : ""}><td>#${row.position}</td><td>${escapeHTML(pairNames(row.pairId))}${row.pairId === myPairId ? " (você)" : ""}</td><td>${row.wins}V</td><td>${row.balance > 0 ? "+" : ""}${row.balance}</td></tr>`,
+            )
+            .join("")}</tbody></table></div>`,
+      )
+      .join("");
+  }
+
+  function tournamentStandingsForPlayer(tournament, myPairId) {
+    if (!tournament.standings?.length) return "";
+    return `<div class="super8-standings"><p class="micro-label">Classificação final</p><table class="level-bands-table super8-table"><tbody>${tournament.standings
+      .map(
+        (row) =>
+          `<tr${row.pairId === myPairId ? ' class="current-band"' : ""}><td>#${row.position}</td><td>${escapeHTML(row.names.join(" + "))}${row.pairId === myPairId ? " (você)" : ""}</td><td>${escapeHTML(row.stage)}</td></tr>`,
+      )
+      .join("")}</tbody></table></div>`;
+  }
+
+  async function openTournamentScreen() {
+    const myId = state.session?.user?.id;
+    const mineList = $("[data-tournament-mine-list]");
+    const openList = $("[data-tournament-open-list]");
     try {
-      const [mine, open] = await Promise.all([
-        apiRequest("/api/v1/players/super8/mine"),
-        apiRequest("/api/v1/players/super8/open"),
-      ]);
-      const mineCount = mine.tournaments?.length || 0;
-      const openCount = open.tournaments?.length || 0;
-      const parts = [];
-      if (mineCount)
-        parts.push(`${mineCount} ${mineCount === 1 ? "torneio seu" : "torneios seus"}`);
-      if (openCount)
-        parts.push(
-          `${openCount} ${openCount === 1 ? "aberto para inscrição" : "abertos para inscrição"}`,
-        );
-      note.textContent = parts.length
-        ? parts.join(" · ")
-        : "Veja seus torneios e inscrições abertas";
-    } catch {
-      /* mantém o texto padrão */
+      const { tournaments } = await apiRequest(
+        "/api/v1/players/tournaments/mine",
+      );
+      mineList.innerHTML = tournaments?.length
+        ? tournaments
+            .map((tournament, index) => {
+              const myPairId =
+                tournament.pairs.find((pair) =>
+                  pair.players.some((player) => player.id === myId),
+                )?.id ?? null;
+              const relevantGames = tournament.games.filter(
+                (game) =>
+                  game.phase !== "grupos" ||
+                  [
+                    ...(game.team1.players ?? []),
+                    ...(game.team2.players ?? []),
+                  ].some((player) => player.id === myId),
+              );
+              const status =
+                tournament.status === "finalizado"
+                  ? "Finalizado"
+                  : tournament.status === "inscricoes_abertas"
+                    ? "Inscrições abertas"
+                    : `${tournament.gamesFinished}/${tournament.gamesTotal} jogos`;
+              return `<details class="ranking-category super8-player-card"${index === 0 ? " open" : ""}><summary><span class="ranking-category-title">${escapeHTML(tournament.name)}</span><span class="ranking-category-meta">${escapeHTML(tournament.clubName)} · ${escapeHTML(status)}</span></summary>${tournamentStandingsForPlayer(tournament, myPairId)}${tournament.groups.length ? tournamentGroupTable(tournament, myPairId) : '<p class="profile-data-note">As chaves serão geradas quando o clube encerrar as inscrições.</p>'}<div class="super8-games">${relevantGames.map((game) => tournamentMyGameCard(game, tournament, myId)).join("")}</div></details>`;
+            })
+            .join("")
+        : '<p class="profile-data-note">Você ainda não participa de nenhum torneio.</p>';
+    } catch (error) {
+      mineList.innerHTML = `<p class="profile-data-note">${escapeHTML(error.message)}</p>`;
+    }
+    try {
+      const { tournaments } = await apiRequest(
+        "/api/v1/players/tournaments/open",
+      );
+      openList.innerHTML = tournaments?.length
+        ? tournaments
+            .map(
+              (tournament) =>
+                `<div class="super8-open-row" data-tournament-row="${escapeHTML(tournament.id)}"><div><strong>${escapeHTML(tournament.name)}</strong><small>${escapeHTML(tournament.clubName)} · ${tournament.registrationType === "dupla" ? "Em dupla" : "Individual"} · ${escapeHTML(TOURNAMENT_GENDER_LABELS[tournament.genderCategory])} · Nível ${Number(tournament.levelMin).toLocaleString("pt-BR")}–${Number(tournament.levelMax).toLocaleString("pt-BR")}</small><div class="tournament-partner hidden" data-tournament-partner-box><input type="search" data-tournament-partner-search placeholder="Buscar parceiro(a) cadastrado" autocomplete="off" /><div class="super8-search-results hidden" data-tournament-partner-results></div></div></div>${tournament.alreadyJoined ? '<span class="status-badge">Inscrito</span>' : `<button class="button button-primary" type="button" data-tournament-register="${escapeHTML(tournament.id)}" data-registration-type="${escapeHTML(tournament.registrationType)}">Inscrever-se</button>`}</div>`,
+            )
+            .join("")
+        : '<p class="profile-data-note">Nenhum torneio compatível com seu perfil está com inscrições abertas.</p>';
+      $$("[data-tournament-register]", openList).forEach((button) =>
+        button.addEventListener("click", () => startTournamentRegister(button)),
+      );
+    } catch (error) {
+      openList.innerHTML = `<p class="profile-data-note">${escapeHTML(error.message)}</p>`;
+    }
+  }
+
+  function startTournamentRegister(button) {
+    const tournamentId = button.dataset.tournamentRegister;
+    if (button.dataset.registrationType === "individual") {
+      registerInTournament(button, tournamentId, null);
+      return;
+    }
+    // inscrição em dupla: revela a busca de parceiro dentro do próprio card
+    const row = button.closest("[data-tournament-row]");
+    const box = $("[data-tournament-partner-box]", row);
+    box.classList.remove("hidden");
+    const input = $("[data-tournament-partner-search]", box);
+    const results = $("[data-tournament-partner-results]", box);
+    input.focus();
+    let timer = null;
+    input.oninput = () => {
+      clearTimeout(timer);
+      const query = input.value.trim();
+      if (query.length < 2) {
+        results.classList.add("hidden");
+        return;
+      }
+      timer = setTimeout(async () => {
+        try {
+          const data = await apiRequest(
+            `/api/v1/players/search?q=${encodeURIComponent(query)}`,
+          );
+          const players = (data.players || []).filter(
+            (player) => player.id !== state.session?.user?.id,
+          );
+          results.classList.toggle("hidden", !players.length);
+          results.innerHTML = players
+            .map(
+              (player) =>
+                `<button type="button" data-partner-pick="${escapeHTML(player.id)}"><strong>${escapeHTML(player.displayName)}</strong><small>${player.level !== null ? `Nível ${Number(player.level).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "Sem nível"}</small></button>`,
+            )
+            .join("");
+          $$("[data-partner-pick]", results).forEach((pick) =>
+            pick.addEventListener("click", () =>
+              registerInTournament(button, tournamentId, pick.dataset.partnerPick),
+            ),
+          );
+        } catch {
+          results.classList.add("hidden");
+        }
+      }, 250);
+    };
+  }
+
+  async function registerInTournament(button, tournamentId, partnerId) {
+    setBusy(button, true, "Inscrevendo…");
+    try {
+      const { tournament } = await apiRequest(
+        `/api/v1/players/tournaments/${encodeURIComponent(tournamentId)}/register`,
+        {
+          method: "POST",
+          body: partnerId ? { partnerId } : {},
+        },
+      );
+      showToast(`Inscrição confirmada em ${tournament.name}.`);
+      openTournamentScreen();
+    } catch (error) {
+      showToast(error.message);
+      if (button.isConnected) setBusy(button, false);
     }
   }
 
@@ -2358,6 +2627,12 @@
         .map((booking) => booking.clubId),
     );
     $("[data-profile-clubs]").textContent = String(clubIds.size);
+    const phoneCell = $("[data-profile-phone-value]");
+    if (phoneCell) {
+      phoneCell.textContent = profile.phone
+        ? profile.phone.replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3")
+        : "—";
+    }
     const genderCell = $("[data-profile-gender-value]");
     if (genderCell) {
       genderCell.textContent = profileValue(profile.gender, {
@@ -2648,20 +2923,44 @@
     state.profilePreviewObjectUrl = null;
   }
 
+  // TASKS-15 / TASK-65 — controles da pré-visualização (erro no lugar do
+  // preview + botão de remover/trocar antes de confirmar).
+  function setPlayerPhotoFeedback({ error = "", selected = false } = {}) {
+    const note = $("[data-player-photo-error]");
+    if (note) {
+      note.textContent = error;
+      note.classList.toggle("hidden", !error);
+    }
+    $("[data-player-photo-clear]")?.classList.toggle("hidden", !selected);
+  }
+
+  function clearSelectedPlayerPhoto() {
+    const input = $("[data-player-photo-input]");
+    if (input) input.value = "";
+    clearPlayerPhotoObjectUrl();
+    setPlayerPhotoPreview(state.session?.user?.profile?.photoUrl);
+    setPlayerPhotoFeedback();
+  }
+
   function previewPlayerPhoto(event) {
     const [file] = event.currentTarget.files || [];
     clearPlayerPhotoObjectUrl();
     if (!file) {
       setPlayerPhotoPreview(state.session?.user?.profile?.photoUrl);
+      setPlayerPhotoFeedback();
       return;
     }
     try {
       validateImageFile(file);
       state.profilePreviewObjectUrl = URL.createObjectURL(file);
       setPlayerPhotoPreview(state.profilePreviewObjectUrl);
+      setPlayerPhotoFeedback({ selected: true });
     } catch (error) {
+      // TASK-65: o arquivo inválido NÃO fica selecionado e o erro aparece
+      // junto da área de preview (além do toast), sem sugerir aceitação.
       event.currentTarget.value = "";
       setPlayerPhotoPreview(state.session?.user?.profile?.photoUrl);
+      setPlayerPhotoFeedback({ error: error.message });
       showToast(error.message);
     }
   }
@@ -2691,6 +2990,15 @@
     form.elements.firstName.value = profile.firstName || "";
     form.elements.lastName.value = profile.lastName || "";
     form.elements.city.value = profile.city || "";
+    setPlayerPhotoFeedback();
+    if (form.elements.phone) {
+      form.elements.phone.value = profile.phone
+        ? profile.phone.replace(
+            /^(\d{2})(\d{4,5})(\d{4})$/,
+            "($1) $2-$3",
+          )
+        : "";
+    }
     form.elements.availability.value = profile.availability || "";
     form.elements.photo.value = "";
     clearPlayerPhotoObjectUrl();
@@ -2816,13 +3124,31 @@
       button.addEventListener("click", () => openLevelTest(false)),
     );
     $("[data-profile-edit-form]")?.addEventListener("submit", saveProfile);
+    $("[data-player-photo-clear]")?.addEventListener(
+      "click",
+      clearSelectedPlayerPhoto,
+    );
     $("[data-player-photo-input]")?.addEventListener(
       "change",
       previewPlayerPhoto,
     );
     $("[data-level-test-form]")?.addEventListener("submit", submitLevelTest);
-    // TASKS-12: entrada dedicada do Super 8 em "Jogos abertos".
-    $("[data-super8-entry]")?.addEventListener("click", openSuper8Screen);
+    // TASK-64: sub-abas da área "Torneios/Super8"
+    $$("[data-pts8-tab]").forEach((button) =>
+      button.addEventListener("click", () => {
+        $$("[data-pts8-tab]").forEach((tab) => {
+          const active = tab === button;
+          tab.classList.toggle("active", active);
+          tab.setAttribute("aria-selected", active ? "true" : "false");
+        });
+        $$("[data-pts8-panel]").forEach((panel) =>
+          panel.classList.toggle(
+            "ts8-hidden",
+            panel.dataset.pts8Panel !== button.dataset.pts8Tab,
+          ),
+        );
+      }),
+    );
     // TASK-50: refazer a listagem ao mudar o filtro de categoria.
     $("[data-match-gender-filter]")?.addEventListener("change", loadMatches);
     // TASK-17B: formulário de placar (sempre 3 sets).

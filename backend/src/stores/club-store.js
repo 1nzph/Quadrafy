@@ -61,6 +61,32 @@ export class ClubStore {
     });
   }
 
+  // TASKS-13 / TASK-51 — múltiplas arenas por clube.
+  // Decisão documentada (a validar com produto): o botão "Adicionar arena"
+  // permite ao MESMO clube gerenciar várias unidades. Implementação
+  // incremental: a arena principal continua sendo o próprio registro do
+  // clube (compatibilidade total com clubes existentes); arenas adicionais
+  // vivem em `club.arenas` e as quadras ganham um `arenaId` opcional
+  // (ausente = arena principal). Grade e financeiro seguem por clube nesta
+  // fase.
+  async addArena(ownerId, { name, address }) {
+    return this.enqueueWrite(async () => {
+      const club = this.findByOwnerId(ownerId);
+      if (!club) return null;
+      if (!Array.isArray(club.arenas)) club.arenas = [];
+      const arena = {
+        id: createId(),
+        name,
+        address,
+        createdAt: new Date().toISOString(),
+      };
+      club.arenas.push(arena);
+      club.updatedAt = arena.createdAt;
+      await this.persist();
+      return arena;
+    });
+  }
+
   async updateProfile(ownerId, update) {
     return this.enqueueWrite(async () => {
       const club = this.findByOwnerId(ownerId);

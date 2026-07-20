@@ -33,6 +33,8 @@ import {
   validatePlayerProfile,
   validateRecurringBooking,
   validateRecurringBookingUpdate,
+  validateArena,
+  validateTournament,
   validateRegistration,
   validateSuper8,
   validateSuper8Courts,
@@ -47,6 +49,19 @@ import { LevelTestStore } from "./stores/level-test-store.js";
 import { MatchResultStore } from "./stores/match-result-store.js";
 import { LevelHistoryStore } from "./stores/level-history-store.js";
 import { Super8Store } from "./stores/super8-store.js";
+import { TournamentStore } from "./stores/tournament-store.js";
+import {
+  buildGroups,
+  buildKnockoutBracket,
+  computeFinalStandings,
+  formPairsFromIndividuals,
+  generateGroupGames,
+  groupStandings,
+  nextKnockoutRound,
+  roundLabelFor,
+  TOURNAMENT_MIN_PAIRS,
+  TOURNAMENT_MAX_PAIRS,
+} from "./lib/tournament-engine.js";
 import {
   computeSuper8Standings,
   generateSuper8Games,
@@ -273,6 +288,7 @@ export async function createApp(overrides = {}) {
   const matchResults = new MatchResultStore(config.dataDirectory);
   const levelHistory = new LevelHistoryStore(config.dataDirectory);
   const super8 = new Super8Store(config.dataDirectory);
+  const tournaments = new TournamentStore(config.dataDirectory);
   const supabaseEnabled = Boolean(config.supabaseUrl && config.supabaseSecretKey);
   const loginIpLimiter = new RateLimiter({
     limit: 30,
@@ -331,6 +347,7 @@ export async function createApp(overrides = {}) {
     matchResults.initialize(),
     levelHistory.initialize(),
     super8.initialize(),
+    tournaments.initialize(),
   ]);
   const dummyPasswordHash = await hashPassword("quadrafy-dummy-password");
   let agendaWriteQueue = Promise.resolve();
@@ -470,6 +487,7 @@ export async function createApp(overrides = {}) {
       active: court.active,
       openTime: court.openTime ?? court.opensAt,
       closeTime: court.closeTime ?? court.closesAt,
+      arenaId: court.arenaId ?? null,
       slotDuration: court.slotDuration ?? court.slotDurationMinutes,
       opensAt: court.openTime ?? court.opensAt,
       closesAt: court.closeTime ?? court.closesAt,
@@ -1250,6 +1268,33 @@ export async function createApp(overrides = {}) {
       return true;
     }
 
+    // TASKS-13 / TASK-51 — múltiplas arenas por clube (ver comentário no
+    // club-store: arena principal = registro do clube; extras em club.arenas).
+    if (pathname === "/api/v1/club/arenas" && request.method === "GET") {
+      const user = requireUser(request, "club");
+      const club = await clubs.ensureForUser(user);
+      sendData(response, 200, { arenas: club.arenas ?? [] });
+      return true;
+    }
+    if (pathname === "/api/v1/club/arenas" && request.method === "POST") {
+      assertSameOrigin(request);
+      const user = requireUser(request, "club");
+      await clubs.ensureForUser(user);
+      const input = validateArena(await readJson(request));
+      const arena = await clubs.addArena(user.id, input);
+      await auditLog.record({
+        actorId: user.id,
+        action: "club.arena_created",
+        resourceType: "club",
+        resourceId: arena.id,
+        before: null,
+        after: input,
+        requestId: request.requestId,
+      });
+      sendData(response, 201, { arena });
+      return true;
+    }
+
     if (request.method === "PATCH" && pathname === "/api/v1/club/profile") {
       assertSameOrigin(request);
       const user = requireUser(request, "club");
@@ -1463,6 +1508,18 @@ export async function createApp(overrides = {}) {
       const user = requireUser(request, "club");
       const club = await clubs.ensureForUser(user);
       const input = validateCourt(await readJson(request));
+      // TASK-51: arenaId (se enviado) precisa ser uma arena do próprio clube
+      if (
+        input.arenaId &&
+        !(club.arenas ?? []).some((arena) => arena.id === input.arenaId)
+      ) {
+        throw new ApiError(
+          422,
+          "validation_failed",
+          "Selecione uma arena válida do seu clube.",
+          { field: "arenaId" },
+        );
+      }
       const court = await courts.create({ clubId: club.id, ...input });
       sendData(
         response,
@@ -1768,7 +1825,8 @@ export async function createApp(overrides = {}) {
       assertSameOrigin(request);
       const user = requireUser(request, "player");
       bookingLimiter.consume(user.id);
-      const input = validateBooking(await readJson(request));
+      const rawBody = await readJson(request);
+      const input = validateBooking(rawBody);
       assertPlayerEligibleForRange(user, input);
       // TASK-49: o criador ocupa a primeira vaga, então também precisa ser
       // compatível com a categoria escolhida.
@@ -1777,6 +1835,43 @@ export async function createApp(overrides = {}) {
           { genderCategory: input.genderCategory, teams: null },
           user,
         );
+      }
+      // TASKS-14 / TASK-60 — o criador pode adicionar até 3 jogadores já na
+      // criação; eles entram confirmados nas próximas vagas (team1 slot 1,
+      // team2 slots 0 e 1), respeitando nível e categoria de gênero.
+      let invitedPlayers = [];
+      if (input.visibility === "open" && rawBody?.invitedPlayerIds) {
+        const rawIds = rawBody.invitedPlayerIds;
+        if (!Array.isArray(rawIds) || rawIds.length > 3) {
+          throw new ApiError(
+            422,
+            "validation_failed",
+            "Adicione no máximo 3 jogadores (as 3 vagas restantes).",
+            { field: "invitedPlayerIds" },
+          );
+        }
+        const ids = [...new Set(rawIds.map((id) => String(id ?? "").trim()))];
+        if (ids.length !== rawIds.length || ids.includes(user.id)) {
+          throw new ApiError(
+            422,
+            "validation_failed",
+            "A lista de jogadores adicionados é inválida (repetidos ou você mesmo).",
+            { field: "invitedPlayerIds" },
+          );
+        }
+        invitedPlayers = ids.map((id) => {
+          const invited = users.findById(id);
+          if (!invited || invited.role !== "player") {
+            throw new ApiError(
+              422,
+              "validation_failed",
+              "Um dos jogadores adicionados não foi encontrado.",
+              { field: "invitedPlayerIds" },
+            );
+          }
+          assertPlayerEligibleForRange(invited, input);
+          return invited;
+        });
       }
       const futureOwnedBookings = bookings
         .listByPlayer(user.id)
@@ -1833,6 +1928,19 @@ export async function createApp(overrides = {}) {
           status: "confirmed",
         });
       });
+      // TASK-60: posiciona os convidados nas vagas seguintes, validando a
+      // regra de gênero vaga a vaga (mesma lógica do join normal).
+      const INVITE_POSITIONS = [
+        { team: "team1", slot: 1 },
+        { team: "team2", slot: 0 },
+        { team: "team2", slot: 1 },
+      ];
+      let finalBooking = booking;
+      for (const [index, invited] of invitedPlayers.entries()) {
+        const position = INVITE_POSITIONS[index];
+        assertGenderAllowed(bookings.findById(booking.id), invited, position);
+        finalBooking = await bookings.join(booking.id, invited.id, position);
+      }
       await auditLog.record({
         actorId: user.id,
         action: "booking.created",
@@ -1844,7 +1952,7 @@ export async function createApp(overrides = {}) {
       sendData(
         response,
         201,
-        { booking: bookingView(booking) },
+        { booking: bookingView(finalBooking) },
         {
           Location: `/api/v1/player/bookings/${booking.id}`,
         },
@@ -1878,11 +1986,19 @@ export async function createApp(overrides = {}) {
       const matchesGenderFilter = (booking) =>
         !genderFilter ||
         (booking.genderCategory ?? "all") === genderFilter;
+      // TASKS-14 / TASK-61: partidas cheias somem da listagem pública —
+      // só participantes continuam vendo (alimenta o "Meus jogos", TASK-62).
+      const visibleToUser = (booking) =>
+        (booking.openSpots ?? 0) > 0 ||
+        (booking.participantIds ?? []).includes(user.id);
       const selected =
         scope === "history"
           ? historyBookings
           : openBookings.filter(
-              (booking) => !started(booking) && matchesGenderFilter(booking),
+              (booking) =>
+                !started(booking) &&
+                matchesGenderFilter(booking) &&
+                visibleToUser(booking),
             );
       const matches = selected
         .sort(
@@ -2586,6 +2702,519 @@ export async function createApp(overrides = {}) {
       return true;
     }
 
+    // ================= TASKS-13 — Torneios (grupos + mata-mata) ==========
+    // Decisão de produto (mesma do Super 8, documentada lá): os jogos de
+    // torneio NÃO alteram o nível oficial do jogador — o clube lança os
+    // resultados diretamente, sem confirmação cruzada.
+
+    function tournamentPairView(tournament, pairId) {
+      const pair = tournament.pairs.find((item) => item.id === pairId);
+      return pair
+        ? { id: pair.id, names: pair.players.map((player) => player.name) }
+        : { id: pairId, names: ["—"] };
+    }
+
+    function tournamentView(tournament) {
+      const games = tournament.games ?? [];
+      return {
+        id: tournament.id,
+        name: tournament.name,
+        date: tournament.date,
+        registrationType: tournament.registrationType,
+        genderCategory: tournament.genderCategory,
+        levelMin: tournament.levelMin,
+        levelMax: tournament.levelMax,
+        courtIds: tournament.courtIds ?? [],
+        registrationsCount: tournament.registrations.length,
+        registeredPlayers: tournament.registrations.flatMap((entry) =>
+          entry.players.map((player) => ({ id: player.id, name: player.name })),
+        ),
+        pairs: tournament.pairs.map((pair) => ({
+          id: pair.id,
+          names: pair.players.map((player) => player.name),
+          players: pair.players.map((player) => ({
+            id: player.id,
+            name: player.name,
+          })),
+          seedLevel: pair.seedLevel,
+        })),
+        groups: (tournament.groups ?? []).map((group, index) => ({
+          name: group.name,
+          pairIds: group.pairIds,
+          standings: groupStandings(
+            group,
+            games.filter((game) => game.groupIndex === index),
+          ),
+        })),
+        games: games.map((game) => ({
+          ...game,
+          team1: tournamentPairView(tournament, game.team1PairId),
+          team2: tournamentPairView(tournament, game.team2PairId),
+        })),
+        gamesTotal: games.length,
+        gamesFinished: games.filter((game) => game.status === "finalizado")
+          .length,
+        standings: tournament.standings
+          ? tournament.standings.map((row) => ({
+              ...row,
+              names: tournamentPairView(tournament, row.pairId).names,
+            }))
+          : null,
+        status: tournament.status,
+        createdAt: tournament.createdAt,
+      };
+    }
+
+    function tournamentPlayerEligible(tournament, user) {
+      const gender = user.profile?.gender;
+      if (tournament.genderCategory === "women_only" && gender !== "female")
+        return false;
+      if (tournament.genderCategory === "men_only" && gender !== "male")
+        return false;
+      if (
+        tournament.genderCategory === "mixed" &&
+        gender !== "female" &&
+        gender !== "male"
+      )
+        return false;
+      const playerLevel = Number(user.profile?.level);
+      if (!Number.isFinite(playerLevel)) return false;
+      return (
+        playerLevel >= tournament.levelMin && playerLevel <= tournament.levelMax
+      );
+    }
+
+    function tournamentHasPlayer(tournament, playerId) {
+      return tournament.registrations.some((entry) =>
+        entry.players.some((player) => player.id === playerId),
+      );
+    }
+
+    // TASK-54.2 — listagem do clube
+    if (pathname === "/api/v1/club/tournaments" && request.method === "GET") {
+      const user = requireUser(request, "club");
+      const club = await clubs.ensureForUser(user);
+      sendData(response, 200, {
+        tournaments: tournaments.listByClub(club.id).map(tournamentView),
+      });
+      return true;
+    }
+
+    // TASK-54.3 — criação
+    if (pathname === "/api/v1/club/tournaments" && request.method === "POST") {
+      assertSameOrigin(request);
+      const user = requireUser(request, "club");
+      const club = await clubs.ensureForUser(user);
+      const input = validateTournament(await readJson(request));
+      const tournament = await tournaments.create({
+        clubId: club.id,
+        ...input,
+        courtIds: [],
+      });
+      sendData(response, 201, { tournament: tournamentView(tournament) });
+      return true;
+    }
+
+    // TASK-54.3 — quadras do torneio (mesmo padrão do Super 8)
+    const tournamentCourtsRoute = pathname.match(
+      /^\/api\/v1\/club\/tournaments\/([^/]+)\/courts$/,
+    );
+    if (tournamentCourtsRoute && request.method === "PATCH") {
+      assertSameOrigin(request);
+      const user = requireUser(request, "club");
+      const club = await clubs.ensureForUser(user);
+      const id = decodeURIComponent(tournamentCourtsRoute[1]);
+      tournaments.requireOwned(id, club.id);
+      const input = validateSuper8Courts(await readJson(request));
+      const owned = courts.listByClub(club.id).map((court) => court.id);
+      if (input.courtIds.some((courtId) => !owned.includes(courtId))) {
+        throw new ApiError(
+          422,
+          "validation_failed",
+          "Selecione apenas quadras do seu clube.",
+          { field: "courtIds" },
+        );
+      }
+      const tournament = await tournaments.update(id, {
+        courtIds: input.courtIds,
+      });
+      sendData(response, 200, { tournament: tournamentView(tournament) });
+      return true;
+    }
+
+    // TASK-54.4 — encerra inscrições: forma duplas (se individual), grupos
+    // com cabeças de chave e os jogos da fase de grupos.
+    const tournamentCloseRoute = pathname.match(
+      /^\/api\/v1\/club\/tournaments\/([^/]+)\/close-registrations$/,
+    );
+    if (tournamentCloseRoute && request.method === "POST") {
+      assertSameOrigin(request);
+      const user = requireUser(request, "club");
+      const club = await clubs.ensureForUser(user);
+      const id = decodeURIComponent(tournamentCloseRoute[1]);
+      const current = tournaments.requireOwned(id, club.id);
+      if (current.status !== "inscricoes_abertas") {
+        throw new ApiError(
+          409,
+          "tournament_not_open",
+          "As inscrições deste torneio já foram encerradas.",
+        );
+      }
+      if (!current.courtIds?.length) {
+        throw new ApiError(
+          409,
+          "tournament_courts_required",
+          "Selecione as quadras do torneio antes de gerar as chaves.",
+        );
+      }
+      let rawPairs;
+      if (current.registrationType === "individual") {
+        const entries = current.registrations.map((entry) => entry.players[0]);
+        try {
+          rawPairs = formPairsFromIndividuals(
+            entries,
+            current.genderCategory,
+          );
+        } catch (error) {
+          throw new ApiError(
+            409,
+            "tournament_pairing_failed",
+            error.message === "mixed_requires_equal_counts"
+              ? "Torneio misto: é preciso o mesmo número de homens e mulheres inscritos."
+              : "É preciso um número par de inscritos para formar as duplas.",
+          );
+        }
+      } else {
+        rawPairs = current.registrations.map((entry) => entry.players);
+      }
+      if (
+        rawPairs.length < TOURNAMENT_MIN_PAIRS ||
+        rawPairs.length > TOURNAMENT_MAX_PAIRS
+      ) {
+        throw new ApiError(
+          409,
+          "tournament_size_invalid",
+          `O torneio precisa de ${TOURNAMENT_MIN_PAIRS} a ${TOURNAMENT_MAX_PAIRS} duplas (há ${rawPairs.length}).`,
+        );
+      }
+      const pairs = rawPairs.map((players, index) => ({
+        id: `pair-${index + 1}`,
+        players: players.map((player) => ({
+          id: player.id ?? null,
+          name: player.name,
+        })),
+        seedLevel:
+          players.reduce((sum, player) => sum + (Number(player.level) || 0), 0) /
+          players.length,
+      }));
+      const groups = buildGroups(pairs);
+      const tournamentCourts = current.courtIds
+        .map((courtId) => courts.findById(courtId))
+        .filter(Boolean)
+        .map((court) => ({ id: court.id, name: court.name }));
+      const games = generateGroupGames(groups, tournamentCourts).map(
+        (game) => ({
+          id: createId(),
+          ...game,
+          status: "aguardando",
+          score: null,
+        }),
+      );
+      const tournament = await tournaments.update(id, {
+        pairs,
+        groups,
+        games,
+        status: "em_andamento",
+      });
+      await auditLog.record({
+        actorId: user.id,
+        action: "tournament.brackets_generated",
+        resourceType: "tournament",
+        resourceId: id,
+        before: null,
+        after: { pairs: pairs.length, groups: groups.length },
+        requestId: request.requestId,
+      });
+      sendData(response, 200, { tournament: tournamentView(tournament) });
+      return true;
+    }
+
+    // TASK-54.5 — clube lança/corrige o resultado; avança o mata-mata e
+    // finaliza automaticamente quando a final é decidida (TASK-54.6).
+    const tournamentResultRoute = pathname.match(
+      /^\/api\/v1\/club\/tournaments\/([^/]+)\/games\/([^/]+)\/result$/,
+    );
+    if (tournamentResultRoute && request.method === "POST") {
+      assertSameOrigin(request);
+      const user = requireUser(request, "club");
+      const club = await clubs.ensureForUser(user);
+      const id = decodeURIComponent(tournamentResultRoute[1]);
+      const gameId = decodeURIComponent(tournamentResultRoute[2]);
+      const current = tournaments.requireOwned(id, club.id);
+      if (current.status !== "em_andamento") {
+        throw new ApiError(
+          409,
+          "tournament_result_unavailable",
+          "Os resultados só podem ser lançados com o torneio em andamento.",
+        );
+      }
+      const target = current.games.find((game) => game.id === gameId);
+      if (!target) {
+        throw new ApiError(
+          404,
+          "tournament_game_not_found",
+          "Jogo não encontrado neste torneio.",
+        );
+      }
+      // jogos de fases já concluídas não podem ser reescritos depois que a
+      // fase seguinte foi gerada (mudaria uma chave já disputada)
+      const knockoutPhases = [
+        ...new Set(
+          current.games
+            .filter((game) => game.phase !== "grupos")
+            .map((game) => game.phase),
+        ),
+      ];
+      const phaseLocked =
+        (target.phase === "grupos" && knockoutPhases.length > 0) ||
+        (target.phase !== "grupos" &&
+          knockoutPhases.indexOf(target.phase) < knockoutPhases.length - 1);
+      if (target.status === "finalizado" && phaseLocked) {
+        throw new ApiError(
+          409,
+          "tournament_phase_locked",
+          "Este resultado não pode mais ser editado: a fase seguinte já foi gerada.",
+        );
+      }
+      const score = validateSuper8GameResult(await readJson(request));
+      let games = current.games.map((game) =>
+        game.id === gameId
+          ? { ...game, status: "finalizado", score }
+          : game,
+      );
+      let status = current.status;
+      let standings = current.standings ?? null;
+
+      const groupGames = games.filter((game) => game.phase === "grupos");
+      const groupsDone = groupGames.every(
+        (game) => game.status === "finalizado",
+      );
+      const knockout = games.filter((game) => game.phase !== "grupos");
+      const tournamentCourts = current.courtIds
+        .map((courtId) => courts.findById(courtId))
+        .filter(Boolean)
+        .map((court) => ({ id: court.id, name: court.name }));
+      const appendKnockout = (matchups) => {
+        const label = roundLabelFor(matchups.length);
+        matchups.forEach((matchup, index) => {
+          games.push({
+            id: createId(),
+            phase: label,
+            groupIndex: undefined,
+            order: games.length + 1,
+            court: tournamentCourts[index % tournamentCourts.length],
+            team1PairId: matchup.team1PairId,
+            team2PairId: matchup.team2PairId,
+            status: "aguardando",
+            score: null,
+          });
+        });
+      };
+      if (groupsDone && !knockout.length) {
+        // grupos concluídos → primeira fase eliminatória (cruzamento clássico)
+        const standingsPerGroup = current.groups.map((group, index) =>
+          groupStandings(
+            group,
+            games.filter((game) => game.groupIndex === index),
+          ),
+        );
+        appendKnockout(buildKnockoutBracket(standingsPerGroup));
+      } else if (knockout.length) {
+        const lastPhase = knockoutPhases[knockoutPhases.length - 1];
+        const lastRound = games.filter((game) => game.phase === lastPhase);
+        if (lastRound.every((game) => game.status === "finalizado")) {
+          if (lastPhase === "Final") {
+            // TASK-54.6 — classificação final automática
+            standings = computeFinalStandings({
+              games,
+              groups: current.groups,
+            });
+            status = "finalizado";
+          } else {
+            appendKnockout(nextKnockoutRound(lastRound));
+          }
+        }
+      }
+      const tournament = await tournaments.update(id, {
+        games,
+        standings,
+        status,
+      });
+      await auditLog.record({
+        actorId: user.id,
+        action: "tournament.game_result",
+        resourceType: "tournament",
+        resourceId: id,
+        before: null,
+        after: { gameId, score },
+        requestId: request.requestId,
+      });
+      sendData(response, 200, { tournament: tournamentView(tournament) });
+      return true;
+    }
+
+    // TASK-55 — lado do jogador
+    if (
+      pathname === "/api/v1/players/tournaments/mine" &&
+      request.method === "GET"
+    ) {
+      const user = requireUser(request, "player");
+      const mine = tournaments
+        .listAll()
+        .filter((tournament) => tournamentHasPlayer(tournament, user.id))
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )
+        .map((tournament) => ({
+          ...tournamentView(tournament),
+          clubName: clubs.findById(tournament.clubId)?.name ?? "Clube",
+        }));
+      sendData(response, 200, { tournaments: mine });
+      return true;
+    }
+
+    if (
+      pathname === "/api/v1/players/tournaments/open" &&
+      request.method === "GET"
+    ) {
+      const user = requireUser(request, "player");
+      // só torneios compatíveis com gênero e faixa de nível do jogador
+      const open = tournaments
+        .listAll()
+        .filter(
+          (tournament) =>
+            tournament.status === "inscricoes_abertas" &&
+            tournamentPlayerEligible(tournament, user),
+        )
+        .map((tournament) => ({
+          id: tournament.id,
+          name: tournament.name,
+          date: tournament.date,
+          registrationType: tournament.registrationType,
+          genderCategory: tournament.genderCategory,
+          levelMin: tournament.levelMin,
+          levelMax: tournament.levelMax,
+          clubName: clubs.findById(tournament.clubId)?.name ?? "Clube",
+          registrationsCount: tournament.registrations.length,
+          alreadyJoined: tournamentHasPlayer(tournament, user.id),
+        }));
+      sendData(response, 200, { tournaments: open });
+      return true;
+    }
+
+    const tournamentRegisterRoute = pathname.match(
+      /^\/api\/v1\/players\/tournaments\/([^/]+)\/register$/,
+    );
+    if (tournamentRegisterRoute && request.method === "POST") {
+      assertSameOrigin(request);
+      const user = requireUser(request, "player");
+      const id = decodeURIComponent(tournamentRegisterRoute[1]);
+      const current = tournaments.findById(id);
+      if (!current || current.status !== "inscricoes_abertas") {
+        throw new ApiError(
+          404,
+          "tournament_not_open",
+          "Este torneio não está com inscrições abertas.",
+        );
+      }
+      if (!tournamentPlayerEligible(current, user)) {
+        throw new ApiError(
+          403,
+          "tournament_not_eligible",
+          "Seu nível ou categoria de gênero não é compatível com este torneio.",
+        );
+      }
+      if (tournamentHasPlayer(current, user.id)) {
+        throw new ApiError(
+          409,
+          "tournament_already_joined",
+          "Você já está inscrito neste torneio.",
+        );
+      }
+      const meEntry = {
+        id: user.id,
+        name: displayName(user),
+        level: Number(user.profile?.level) || 0,
+        gender: user.profile?.gender ?? null,
+      };
+      let players = [meEntry];
+      if (current.registrationType === "dupla") {
+        const body = await readJson(request);
+        const partnerId = String(body?.partnerId ?? "").trim();
+        const partner = partnerId ? users.findById(partnerId) : null;
+        if (!partner || partner.role !== "player") {
+          throw new ApiError(
+            422,
+            "validation_failed",
+            "Inscrição em dupla: informe o parceiro (jogador da plataforma).",
+            { field: "partnerId" },
+          );
+        }
+        if (partner.id === user.id) {
+          throw new ApiError(
+            422,
+            "validation_failed",
+            "Escolha um parceiro diferente de você.",
+            { field: "partnerId" },
+          );
+        }
+        if (!tournamentPlayerEligible(current, partner)) {
+          throw new ApiError(
+            409,
+            "tournament_not_eligible",
+            "O parceiro escolhido não é compatível com a faixa de nível/categoria do torneio.",
+          );
+        }
+        if (tournamentHasPlayer(current, partner.id)) {
+          throw new ApiError(
+            409,
+            "tournament_already_joined",
+            "O parceiro escolhido já está inscrito neste torneio.",
+          );
+        }
+        if (current.genderCategory === "mixed") {
+          const genders = [user.profile?.gender, partner.profile?.gender];
+          if (
+            !(genders.includes("female") && genders.includes("male"))
+          ) {
+            throw new ApiError(
+              409,
+              "gender_mix_required",
+              "Torneio misto: a dupla precisa ter um homem e uma mulher.",
+            );
+          }
+        }
+        players.push({
+          id: partner.id,
+          name: displayName(partner),
+          level: Number(partner.profile?.level) || 0,
+          gender: partner.profile?.gender ?? null,
+        });
+      }
+      const tournament = await tournaments.update(id, {
+        registrations: [...current.registrations, { players }],
+      });
+      sendData(response, 200, {
+        tournament: {
+          id: tournament.id,
+          name: tournament.name,
+          registrationsCount: tournament.registrations.length,
+        },
+      });
+      return true;
+    }
+
     // ================= TASKS-09 — Super 8 =================
     // Decisão de produto (TASK-42): os jogos de Super 8 NÃO passam pelo
     // fluxo de resultado/nível oficial (TASKS-06/07/08) nesta fase — o
@@ -2601,6 +3230,7 @@ export async function createApp(overrides = {}) {
         mode: tournament.mode,
         players: tournament.players,
         pairs: tournament.pairs,
+        startTime: tournament.startTime ?? null,
         courtIds: tournament.courtIds,
         games: tournament.games ?? [],
         gamesTotal: (tournament.games ?? []).length,
@@ -2651,6 +3281,7 @@ export async function createApp(overrides = {}) {
         mode: input.mode,
         players,
         pairs: input.pairs,
+        startTime: input.startTime,
       });
       await auditLog.record({
         actorId: user.id,
@@ -2816,6 +3447,35 @@ export async function createApp(overrides = {}) {
       }
       const tournament = await super8.update(tournamentId, club.id, {
         status: "inscricoes_abertas",
+      });
+      sendData(response, 200, { tournament: super8View(tournament) });
+      return true;
+    }
+
+    // TASKS-14 / TASK-63 — clube fecha as inscrições quando quiser; o
+    // torneio volta para "em_configuracao". A geração dos confrontos segue
+    // exigindo o número exato de jogadores (regra sugerida no documento,
+    // para não quebrar o motor de rotação).
+    const super8CloseRegistrationsRoute = pathname.match(
+      /^\/api\/v1\/club\/super8\/([^/]+)\/close-registrations$/,
+    );
+    if (super8CloseRegistrationsRoute && request.method === "POST") {
+      assertSameOrigin(request);
+      const user = requireUser(request, "club");
+      const club = await clubs.ensureForUser(user);
+      const tournamentId = decodeURIComponent(
+        super8CloseRegistrationsRoute[1],
+      );
+      const current = super8.requireOwned(tournamentId, club.id);
+      if (current.status !== "inscricoes_abertas") {
+        throw new ApiError(
+          409,
+          "super8_registrations_unavailable",
+          "Este torneio não está com inscrições abertas.",
+        );
+      }
+      const tournament = await super8.update(tournamentId, club.id, {
+        status: "em_configuracao",
       });
       sendData(response, 200, { tournament: super8View(tournament) });
       return true;

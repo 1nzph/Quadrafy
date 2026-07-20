@@ -6122,3 +6122,248 @@ button.match-player-row:focus-visible strong {
     grid-template-columns: 1fr;
   }
 }
+
+/* TASK-53 — modal aberto sobre outro modal (ex.: placar do Super 8 aberto a
+   partir do modal de detalhe do torneio) precisa de z-index acima dos 100
+   dos backdrops comuns, senão o modal-pai pinta por cima dele. */
+.modal-backdrop.modal-stacked {
+  z-index: 140;
+}
+
+/* TASKS-13 — Torneios */
+.tournament-entry {
+  border-color: rgba(20, 23, 31, 0.35);
+  background: linear-gradient(105deg, rgba(20, 23, 31, 0.06), rgba(246, 244, 239, 0.7));
+}
+.tournament-groups,
+.tournament-group {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+.tournament-group table {
+  margin: 4px 0 0;
+}
+.tournament-partner {
+  position: relative;
+  margin-top: 8px;
+}
+.tournament-partner input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.super8-game-card.mine {
+  border-color: var(--coral);
+}
+
+/* ================================================================
+   TASKS-14 / TASK-56 — grade horária do clube: fontes maiores e
+   estados com cor de contraste forte (paleta existente: indigo/coral).
+   ================================================================ */
+.owner-schedule {
+  /* vira o contêiner de rolagem para o cabeçalho sticky funcionar */
+  overflow: auto;
+  max-height: 72vh;
+}
+.schedule-grid .head,
+.schedule-week-grid .head {
+  position: sticky;
+  z-index: 5;
+  top: 0;
+  min-height: 46px;
+  background: var(--paper, #f6f4ef);
+  box-shadow: 0 1px 0 var(--line);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.schedule-grid .court-name {
+  font-size: 13px;
+}
+.schedule-grid .schedule-time,
+.schedule-week-grid .week-day-button strong {
+  font-size: 13px;
+}
+.schedule-week-grid .week-day-button small,
+.schedule-week-grid .week-summary-cell span {
+  font-size: 11px;
+}
+.schedule-week-grid .week-summary-cell strong {
+  font-size: 13px;
+}
+.schedule-cell span {
+  padding: 4px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  overflow: hidden;
+}
+/* Livre: fundo neutro/claro */
+.schedule-cell[data-schedule-status="available"] span {
+  background: rgba(246, 244, 239, 0.9);
+  border: 1px dashed var(--line);
+  color: var(--ink-soft);
+}
+/* Reservado (avulso): coral em tom suave */
+.schedule-cell[data-schedule-status="booked"] span {
+  background: rgba(255, 107, 74, 0.18);
+  border: 1px solid rgba(255, 107, 74, 0.4);
+  color: var(--coral-dark);
+}
+/* Fixo mensal: tom sólido "carimbado", nome do cliente em destaque */
+.schedule-cell[data-schedule-status="recurring"] span {
+  background: var(--indigo, #1b2a4a);
+  border: 1px solid var(--indigo, #1b2a4a);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: normal;
+}
+.schedule-cell[data-schedule-status="recurring"]:hover span,
+.schedule-cell[data-schedule-status="recurring"]:focus-visible span {
+  filter: brightness(1.18);
+}
+/* Bloqueado: cinza escuro hachurado, inconfundível */
+.schedule-cell[data-schedule-status="blocked"] span {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(20, 23, 31, 0.55),
+    rgba(20, 23, 31, 0.55) 6px,
+    rgba(20, 23, 31, 0.42) 6px,
+    rgba(20, 23, 31, 0.42) 12px
+  );
+  border: 1px solid rgba(20, 23, 31, 0.55);
+  color: #f4f2ec;
+}
+@media (max-width: 720px) {
+  .owner-schedule {
+    max-height: none;
+  }
+  .schedule-cell span {
+    font-size: 11px;
+  }
+  .schedule-grid .court-name {
+    font-size: 12px;
+  }
+}
+
+/* ================================================================
+   TASKS-14 / TASK-57 — centralização do conteúdo do modal
+   "Ver detalhes". Causa raiz: com `overflow: auto`, a barra de rolagem
+   é desenhada DENTRO do padding direito do .modal-card, "comendo" parte
+   dos 30px e deixando o conteúdo visivelmente deslocado para a esquerda
+   em relação às linhas externas do card. A reserva simétrica de gutter
+   devolve o alinhamento; a barra fina reduz o impacto visual.
+   ================================================================ */
+.modal-card {
+  scrollbar-gutter: stable both-edges;
+  scrollbar-width: thin;
+}
+.modal-card::-webkit-scrollbar {
+  width: 6px;
+}
+.modal-card::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(20, 23, 31, 0.18);
+}
+/* padding lateral idêntico em todos os blocos diretos do modal de
+   detalhe (nenhum filho compensa com margens laterais próprias) */
+.match-detail-modal [data-match-detail-content] > * {
+  margin-left: 0;
+  margin-right: 0;
+}
+/* o respiro para o botão de fechar fica restrito à primeira linha do
+   título, sem deslocar o restante do conteúdo */
+[data-match-detail-content] h2 {
+  padding-right: 30px;
+}
+
+/* TASK-59 — horário de início do evento em destaque */
+.super8-start-time {
+  margin: -6px 0 12px;
+  color: var(--coral-dark);
+  font-size: 14px;
+}
+.super8-start-time strong {
+  font: 700 16px/1 var(--mono);
+}
+
+/* TASK-62 — seção "Meus jogos" no topo de Jogos Abertos */
+.my-matches-section {
+  margin-bottom: 22px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--coral);
+  border-radius: 14px;
+  background: rgba(255, 107, 74, 0.05);
+}
+.my-matches-section .micro-label {
+  margin-bottom: 10px;
+  color: var(--coral-dark);
+}
+.match-available-label {
+  margin-bottom: 10px;
+}
+
+/* TASK-64 — sub-navegação Torneios/Super8 */
+.ts8-subnav-wrap {
+  padding-bottom: 0;
+}
+.ts8-subnav {
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+}
+.ts8-subnav button {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 18px;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.ts8-subnav button.active {
+  background: var(--coral);
+  color: #fff;
+}
+/* seção da sub-aba inativa: continua "active" para a navegação principal,
+   mas escondida pela sub-navegação */
+[data-ts8-section].ts8-hidden {
+  display: none;
+}
+
+/* ================================================================
+   TASKS-15 / TASK-65 — controles da pré-visualização de imagem
+   ================================================================ */
+.photo-clear-button {
+  justify-self: start;
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--coral-dark);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.photo-clear-button:hover,
+.photo-clear-button:focus-visible {
+  filter: brightness(0.85);
+}
+.photo-error-note {
+  margin: 6px 0 0;
+  color: var(--coral-dark);
+  font-size: 12px;
+  font-weight: 600;
+}

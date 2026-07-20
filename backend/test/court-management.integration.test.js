@@ -64,6 +64,7 @@ async function register(role, suffix) {
             cnpj: "12.345.678/0001-90",
             email: `court-club-${suffix}@example.com`,
             password: "SenhaSeguraClube123",
+            phone: "11912345678",
           }
         : {
             role,
@@ -72,6 +73,7 @@ async function register(role, suffix) {
             city: "São Paulo",
             email: `court-player-${suffix}@example.com`,
             password: "SenhaSeguraJogador123",
+            phone: "11912345678",
           },
   });
   assert.equal(response.status, 201);

@@ -60,6 +60,7 @@ test("player registration creates a secure session and protects dashboards", asy
       lastName: "Silva",
       email: "ANA@example.com",
       password,
+      phone: "11912345678",
       level: "Intermediário",
       city: "São Paulo",
     },
@@ -113,6 +114,7 @@ test("club account receives only club access and can log in again", async () => 
       cnpj: "12.345.678/0001-90",
       email: "gestao@horizonte.com.br",
       password: "OutraSenhaSegura123",
+      phone: "11912345678",
     },
   });
   assert.equal(registration.status, 201);
@@ -131,6 +133,7 @@ test("club account receives only club access and can log in again", async () => 
     body: {
       email: "gestao@horizonte.com.br",
       password: "OutraSenhaSegura123",
+      phone: "11912345678",
     },
   });
   assert.equal(login.status, 200);
@@ -159,6 +162,7 @@ test("invalid credentials, duplicate e-mail and anonymous access use honest erro
       lastName: "Pessoa",
       email: "ana@example.com",
       password: "SenhaDuplicada123",
+      phone: "11912345678",
       level: "Iniciante",
       city: "Campinas",
     },
@@ -197,6 +201,7 @@ test("login throttles one IP even when the attacker rotates e-mail addresses", a
         body: JSON.stringify({
           email: `rotating-${attempt}@example.com`,
           password: "SenhaIncorreta999",
+          phone: "11912345678",
         }),
       });
 

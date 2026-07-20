@@ -66,6 +66,7 @@ async function registerPlayer(api, suffix) {
       lastName: `Silva ${suffix}`,
       email: `jogador-tasks08-${suffix}@example.com`,
       password: "SenhaSeguraJogador123",
+      phone: "11912345678",
       city: "Sao Paulo",
     },
   });
@@ -98,6 +99,7 @@ async function registerClub(api) {
       cnpj: "12.345.678/0001-90",
       email: "clube-tasks08@example.com",
       password: "SenhaSeguraClube123",
+      phone: "11912345678",
     },
   });
   assert.equal(response.status, 201);

@@ -66,6 +66,7 @@ test("club owner saves public arena information and exposes its address", async 
         cnpj: "12.345.678/0001-90",
         email: "perfil-clube@example.com",
         password: "SenhaSeguraClube123",
+        phone: "11912345678",
       },
     });
     assert.equal(registration.status, 201);
@@ -121,6 +122,7 @@ test("club profile rejects an empty public address", async () => {
         cnpj: "12.345.678/0001-90",
         email: "perfil-invalido@example.com",
         password: "SenhaSeguraClube123",
+        phone: "11912345678",
       },
     });
     const cookie = sessionCookie(registration);

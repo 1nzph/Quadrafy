@@ -3,14 +3,13 @@ import path from "node:path";
 import { ApiError } from "../lib/http.js";
 import { createId } from "../lib/security.js";
 
-// TASKS-09/TASKS-12 — Torneios Super 8 do clube.
-// Status: "em_configuracao" → (opcional "inscricoes_abertas", quando o clube
-// abre vagas para jogadores se inscreverem sozinhos) → "gerado" →
-// "em_andamento" → "finalizado".
-export class Super8Store {
+// TASKS-13 / TASK-54 — Torneios tradicionais (grupos + mata-mata).
+// Status: "inscricoes_abertas" → "em_andamento" (chaves geradas) →
+// "finalizado" (automático quando o resultado da final é lançado).
+export class TournamentStore {
   constructor(dataDirectory) {
     this.dataDirectory = dataDirectory;
-    this.filePath = path.join(dataDirectory, "super8.json");
+    this.filePath = path.join(dataDirectory, "tournaments.json");
     this.tournaments = [];
     this.writeQueue = Promise.resolve();
   }
@@ -41,51 +40,30 @@ export class Super8Store {
       );
   }
 
-  // Torneios publicados (visíveis ao jogador) em que o jogador está inscrito.
-  listPublishedByPlayer(playerId) {
-    return this.tournaments
-      .filter(
-        (entry) =>
-          ["em_andamento", "finalizado"].includes(entry.status) &&
-          entry.players.some((player) => player.id === playerId),
-      )
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      );
+  listAll() {
+    return this.tournaments;
   }
 
   requireOwned(id, clubId) {
     const tournament = this.findById(id);
     if (!tournament || tournament.clubId !== clubId) {
-      throw new ApiError(
-        404,
-        "super8_not_found",
-        "Torneio Super 8 não encontrado.",
-      );
+      throw new ApiError(404, "tournament_not_found", "Torneio não encontrado.");
     }
     return tournament;
   }
 
-  async create({ clubId, name, size, mode, players, pairs, startTime }) {
+  async create(data) {
     return this.enqueueWrite(async () => {
       const now = new Date().toISOString();
       const tournament = {
         id: createId(),
-        clubId,
-        name,
-        size,
-        mode,
-        players,
-        pairs: pairs ?? null,
-        // TASK-59: horário de início do evento (convocação), "HH:MM" ou null
-        startTime: startTime ?? null,
-        courtIds: [],
-        // TASK-43: jogos são apenas confrontos, sem horário.
+        ...data,
+        registrations: [], // individual: [{players:[p]}]; dupla: [{players:[p,p]}]
+        pairs: [],
+        groups: [],
         games: [],
-        // TASK-48: tabela final (vitórias + saldo de games), após finalizar.
         standings: null,
-        status: "em_configuracao",
+        status: "inscricoes_abertas",
         createdAt: now,
         updatedAt: now,
       };
@@ -95,9 +73,16 @@ export class Super8Store {
     });
   }
 
-  async update(id, clubId, changes) {
+  async update(id, changes) {
     return this.enqueueWrite(async () => {
-      const tournament = this.requireOwned(id, clubId);
+      const tournament = this.findById(id);
+      if (!tournament) {
+        throw new ApiError(
+          404,
+          "tournament_not_found",
+          "Torneio não encontrado.",
+        );
+      }
       Object.assign(tournament, changes, {
         updatedAt: new Date().toISOString(),
       });

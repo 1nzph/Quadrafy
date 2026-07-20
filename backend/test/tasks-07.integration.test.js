@@ -71,6 +71,7 @@ async function registerPlayer(api, suffix) {
       lastName: `Silva ${suffix}`,
       email: `jogador-tasks07-${suffix}@example.com`,
       password: "SenhaSeguraJogador123",
+      phone: "11912345678",
       city: "Sao Paulo",
     },
   });

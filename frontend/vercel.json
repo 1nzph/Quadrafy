@@ -4,6 +4,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://quadrafy.onrender.com/api/:path*"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://quadrafy.onrender.com/uploads/:path*"
     }
   ]
 }

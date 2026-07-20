@@ -249,10 +249,8 @@
     if (name === "matches") loadMatches();
     if (name === "ranking") loadRanking();
     if (name === "history") loadHistory();
-    if (name === "tournaments-super8") {
-      openSuper8Screen();
-      openTournamentScreen();
-    }
+    if (name === "super8") openSuper8Screen();
+    if (name === "tournaments") openTournamentScreen();
     if (name === "profile") loadProfileExtras();
   }
 
@@ -1391,8 +1389,6 @@
     return `<div class="super8-standings"><p class="micro-label">Tabela final</p><div class="super8-grid-scroll"><table class="level-bands-table super8-table"><thead><tr><th scope="col">Pos.</th><th scope="col">${tournament.mode === "duplas_fixas" ? "Dupla" : "Jogador"}</th><th scope="col">Vitórias</th><th scope="col">Jogos</th><th scope="col">Saldo</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
   }
 
-  // TASKS-14 / TASK-64: agora renderiza dentro da área "Torneios/Super8"
-  // (antes era um modal aberto de dentro de "Jogos abertos").
   async function openSuper8Screen() {
     const myId = state.session?.user?.id;
     const mineList = $("[data-super8-mine-list]");
@@ -3265,22 +3261,6 @@
       previewPlayerPhoto,
     );
     $("[data-level-test-form]")?.addEventListener("submit", submitLevelTest);
-    // TASK-64: sub-abas da área "Torneios/Super8"
-    $$("[data-pts8-tab]").forEach((button) =>
-      button.addEventListener("click", () => {
-        $$("[data-pts8-tab]").forEach((tab) => {
-          const active = tab === button;
-          tab.classList.toggle("active", active);
-          tab.setAttribute("aria-selected", active ? "true" : "false");
-        });
-        $$("[data-pts8-panel]").forEach((panel) =>
-          panel.classList.toggle(
-            "ts8-hidden",
-            panel.dataset.pts8Panel !== button.dataset.pts8Tab,
-          ),
-        );
-      }),
-    );
     // TASK-50: refazer a listagem ao mudar o filtro de categoria.
     $("[data-match-gender-filter]")?.addEventListener("change", loadMatches);
     // TASK-17B: formulário de placar (sempre 3 sets).

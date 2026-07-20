@@ -54,8 +54,11 @@
             aria-label="Partidas aguardando lançamento de resultado"
           ></span>
         </button>
-        <button type="button" data-player-tab="tournaments-super8">
-          Torneios/Super8
+        <button type="button" data-player-tab="super8">
+          Super 8
+        </button>
+        <button type="button" data-player-tab="tournaments">
+          Torneios
         </button>
         <button type="button" data-player-tab="ranking">Ranking</button>
         <button type="button" data-player-tab="profile">Perfil</button>
@@ -305,63 +308,52 @@
         </div>
       </section>
 
-      <section class="app-view" data-player-view="tournaments-super8">
+      <section class="app-view" data-player-view="super8">
         <div class="app-container">
           <div class="app-heading">
             <div>
               <p class="eyebrow dark">Competições do seu clube</p>
-              <h1>Torneios/<em>Super8.</em></h1>
+              <h1>Seus <em>Super 8.</em></h1>
+              <p>Inscreva-se e acompanhe seus torneios de rotação Super 8.</p>
+            </div>
+          </div>
+          <div class="super8-section">
+            <p class="micro-label">Meus Super 8</p>
+            <div data-super8-mine-list>
+              <p class="profile-data-note">Carregando…</p>
+            </div>
+          </div>
+          <div class="super8-section">
+            <p class="micro-label">Abertos para inscrição</p>
+            <div data-super8-open-list>
+              <p class="profile-data-note">Carregando…</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="app-view" data-player-view="tournaments">
+        <div class="app-container">
+          <div class="app-heading">
+            <div>
+              <p class="eyebrow dark">Competições do seu clube</p>
+              <h1>Seus <em>torneios.</em></h1>
               <p>
-                Inscreva-se e acompanhe seus torneios de rotação (Super 8) e
-                os torneios com grupos e mata-mata.
+                Inscreva-se e acompanhe seus torneios com grupos e
+                mata-mata.
               </p>
             </div>
           </div>
-          <div class="ts8-subnav" role="tablist" aria-label="Torneios e Super 8">
-            <button
-              class="active"
-              type="button"
-              data-pts8-tab="super8"
-              role="tab"
-              aria-selected="true"
-            >
-              Super 8
-            </button>
-            <button
-              type="button"
-              data-pts8-tab="tournaments"
-              role="tab"
-              aria-selected="false"
-            >
-              Torneios
-            </button>
-          </div>
-          <div data-pts8-panel="super8">
-            <div class="super8-section">
-              <p class="micro-label">Meus Super 8</p>
-              <div data-super8-mine-list>
-                <p class="profile-data-note">Carregando…</p>
-              </div>
-            </div>
-            <div class="super8-section">
-              <p class="micro-label">Abertos para inscrição</p>
-              <div data-super8-open-list>
-                <p class="profile-data-note">Carregando…</p>
-              </div>
+          <div class="super8-section">
+            <p class="micro-label">Meus torneios</p>
+            <div data-tournament-mine-list>
+              <p class="profile-data-note">Carregando…</p>
             </div>
           </div>
-          <div data-pts8-panel="tournaments" class="ts8-hidden">
-            <div class="super8-section">
-              <p class="micro-label">Meus torneios</p>
-              <div data-tournament-mine-list>
-                <p class="profile-data-note">Carregando…</p>
-              </div>
-            </div>
-            <div class="super8-section">
-              <p class="micro-label">Abertos para inscrição</p>
-              <div data-tournament-open-list>
-                <p class="profile-data-note">Carregando…</p>
-              </div>
+          <div class="super8-section">
+            <p class="micro-label">Abertos para inscrição</p>
+            <div data-tournament-open-list>
+              <p class="profile-data-note">Carregando…</p>
             </div>
           </div>
         </div>

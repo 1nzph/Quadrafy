@@ -8,6 +8,31 @@ function positiveInteger(value, fallback) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function allowedOrigins(value) {
+  const candidates = Array.isArray(value)
+    ? value
+    : String(value ?? "").split(",");
+
+  return [
+    ...new Set(
+      candidates
+        .map((candidate) => String(candidate).trim())
+        .filter(Boolean)
+        .map((candidate) => {
+          try {
+            const url = new URL(candidate);
+            return ["http:", "https:"].includes(url.protocol)
+              ? url.origin
+              : null;
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean),
+    ),
+  ];
+}
+
 export function loadConfig(overrides = {}) {
   const environment =
     overrides.environment ?? process.env.NODE_ENV ?? "development";
@@ -21,6 +46,9 @@ export function loadConfig(overrides = {}) {
     isProduction: environment === "production",
     port: positiveInteger(overrides.port ?? process.env.PORT, 4173),
     sessionTtlMs: sessionHours * 60 * 60 * 1000,
+    allowedOrigins: allowedOrigins(
+      overrides.allowedOrigins ?? process.env.ALLOWED_ORIGINS,
+    ),
     dataDirectory:
       overrides.dataDirectory ??
       process.env.DATA_DIR ??

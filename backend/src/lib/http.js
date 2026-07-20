@@ -131,19 +131,22 @@ export function clearSessionCookie(secure = false) {
   return sessionCookie("", 0, secure);
 }
 
-export function assertSameOrigin(request) {
+export function assertSameOrigin(request, allowedOrigins = []) {
   const origin = request.headers.origin;
   if (!origin) return;
 
   const host = request.headers.host;
   let originHost;
+  let normalizedOrigin;
   try {
-    originHost = new URL(origin).host;
+    const parsedOrigin = new URL(origin);
+    originHost = parsedOrigin.host;
+    normalizedOrigin = parsedOrigin.origin;
   } catch {
     throw new ApiError(403, "invalid_origin", "Origem da requisição inválida.");
   }
 
-  if (!host || originHost !== host) {
+  if (!host || (originHost !== host && !allowedOrigins.includes(normalizedOrigin))) {
     throw new ApiError(403, "invalid_origin", "Origem da requisição inválida.");
   }
 }

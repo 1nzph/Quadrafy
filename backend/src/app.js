@@ -5,7 +5,7 @@ import { pipeline } from "node:stream/promises";
 import { loadConfig } from "./config.js";
 import {
   ApiError,
-  assertSameOrigin,
+  assertSameOrigin as assertRequestOrigin,
   clearSessionCookie,
   getRequestId,
   parseCookies,
@@ -282,6 +282,8 @@ function securityHeaders(config) {
 
 export async function createApp(overrides = {}) {
   const config = loadConfig(overrides);
+  const assertSameOrigin = (request) =>
+    assertRequestOrigin(request, config.allowedOrigins);
   const users = new UserStore(config.dataDirectory);
   const sessions = new SessionStore(config.sessionTtlMs);
   const clubs = new ClubStore(config.dataDirectory);

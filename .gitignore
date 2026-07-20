@@ -7,4 +7,5 @@ node_modules/
 dist/
 coverage/
 *.log
+.vercel/
 backend/data/*.json

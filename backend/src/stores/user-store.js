@@ -4,14 +4,19 @@ import { ApiError } from "../lib/http.js";
 import { createId, normalizeEmail } from "../lib/security.js";
 
 export class UserStore {
-  constructor(dataDirectory) {
+  constructor(dataDirectory, authenticationRepository = null) {
     this.dataDirectory = dataDirectory;
+    this.authenticationRepository = authenticationRepository;
     this.filePath = path.join(dataDirectory, "users.json");
     this.users = [];
     this.writeQueue = Promise.resolve();
   }
 
   async initialize() {
+    if (this.authenticationRepository) {
+      this.users = await this.authenticationRepository.loadUsers();
+      return;
+    }
     await mkdir(this.dataDirectory, { recursive: true });
     try {
       const file = await readFile(this.filePath, "utf8");
@@ -59,9 +64,24 @@ export class UserStore {
         createdAt: now,
         updatedAt: now,
       };
-      this.users.push(user);
-      await this.persist();
-      return user;
+      try {
+        const persisted = this.authenticationRepository
+          ? await this.authenticationRepository.createUser(user)
+          : user;
+        this.users.push(persisted);
+        if (!this.authenticationRepository) await this.persist();
+        return persisted;
+      } catch (error) {
+        if (error?.code === "23505") {
+          throw new ApiError(
+            409,
+            "email_already_registered",
+            "JÃ¡ existe uma conta cadastrada com este e-mail.",
+            { field: "email" },
+          );
+        }
+        throw error;
+      }
     });
   }
 
@@ -71,9 +91,17 @@ export class UserStore {
       if (!user) {
         throw new ApiError(404, "user_not_found", "Usuário não encontrado.");
       }
-      user.profile = { ...(user.profile ?? {}), ...update };
-      user.updatedAt = new Date().toISOString();
-      await this.persist();
+      const profile = { ...(user.profile ?? {}), ...update };
+      const updatedAt = new Date().toISOString();
+      const persisted = this.authenticationRepository
+        ? await this.authenticationRepository.updateUserProfile(
+            userId,
+            profile,
+            updatedAt,
+          )
+        : { ...user, profile, updatedAt };
+      Object.assign(user, persisted);
+      if (!this.authenticationRepository) await this.persist();
       return user;
     });
   }

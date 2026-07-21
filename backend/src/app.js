@@ -15,6 +15,7 @@ import {
   sessionCookie,
 } from "./lib/http.js";
 import { RateLimiter } from "./lib/rate-limiter.js";
+import { createAuthenticationRepository } from "./lib/authentication-repository.js";
 import {
   createId,
   hashPassword,
@@ -268,10 +269,20 @@ function securityHeaders(config) {
 
 export async function createApp(overrides = {}) {
   const config = loadConfig(overrides);
+  const authenticationRepository =
+    overrides.authenticationRepository ?? createAuthenticationRepository(config);
+  if (config.isProduction && !authenticationRepository) {
+    throw new Error(
+      "SUPABASE_URL and SUPABASE_SECRET_KEY are required in production.",
+    );
+  }
   const assertSameOrigin = (request) =>
     assertRequestOrigin(request, config.allowedOrigins);
-  const users = new UserStore(config.dataDirectory);
-  const sessions = new SessionStore(config.sessionTtlMs);
+  const users = new UserStore(config.dataDirectory, authenticationRepository);
+  const sessions = new SessionStore(
+    config.sessionTtlMs,
+    authenticationRepository,
+  );
   const clubs = new ClubStore(config.dataDirectory);
   const courts = new CourtStore(config.dataDirectory);
   const bookings = new BookingStore(config.dataDirectory);
@@ -331,6 +342,7 @@ export async function createApp(overrides = {}) {
   });
   await Promise.all([
     users.initialize(),
+    sessions.initialize(),
     clubs.initialize(),
     courts.initialize(),
     bookings.initialize(),
@@ -879,8 +891,8 @@ export async function createApp(overrides = {}) {
         after: { role: user.role },
         requestId: request.requestId,
       });
-      sessions.revoke(parseCookies(request).quadrafy_session);
-      const token = sessions.create(user.id);
+      await sessions.revoke(parseCookies(request).quadrafy_session);
+      const token = await sessions.create(user.id);
       sendData(
         response,
         201,
@@ -928,8 +940,8 @@ export async function createApp(overrides = {}) {
         );
       }
       loginAccountLimiter.clear(accountKey);
-      sessions.revoke(parseCookies(request).quadrafy_session);
-      const token = sessions.create(user.id);
+      await sessions.revoke(parseCookies(request).quadrafy_session);
+      const token = await sessions.create(user.id);
       await auditLog.record({
         actorId: user.id,
         action: "auth.logged_in",
@@ -960,7 +972,7 @@ export async function createApp(overrides = {}) {
       assertSameOrigin(request);
       const token = parseCookies(request).quadrafy_session;
       const session = sessions.get(token);
-      sessions.revoke(token);
+      await sessions.revoke(token);
       if (session) {
         await auditLog.record({
           actorId: session.userId,

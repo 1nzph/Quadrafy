@@ -1,18 +1,38 @@
 import { createSessionToken, digestToken } from "../lib/security.js";
 
 export class SessionStore {
-  constructor(ttlMs) {
+  constructor(ttlMs, authenticationRepository = null) {
     this.ttlMs = ttlMs;
+    this.authenticationRepository = authenticationRepository;
     this.sessions = new Map();
   }
 
-  create(userId) {
+  async initialize() {
+    if (!this.authenticationRepository) return;
+    const sessions = await this.authenticationRepository.loadActiveSessions(
+      new Date(),
+    );
+    for (const session of sessions) {
+      this.sessions.set(session.tokenHash, {
+        userId: session.userId,
+        expiresAt: session.expiresAt,
+      });
+    }
+  }
+
+  async create(userId) {
     this.removeExpired();
     const token = createSessionToken();
-    this.sessions.set(digestToken(token), {
+    const tokenHash = digestToken(token);
+    const session = {
       userId,
       expiresAt: Date.now() + this.ttlMs,
-    });
+    };
+    if (this.authenticationRepository) {
+      await this.authenticationRepository.removeExpiredSessions(new Date());
+      await this.authenticationRepository.createSession({ tokenHash, ...session });
+    }
+    this.sessions.set(tokenHash, session);
     return token;
   }
 
@@ -28,8 +48,13 @@ export class SessionStore {
     return session;
   }
 
-  revoke(token) {
-    if (token) this.sessions.delete(digestToken(token));
+  async revoke(token) {
+    if (!token) return;
+    const tokenHash = digestToken(token);
+    if (this.authenticationRepository) {
+      await this.authenticationRepository.revokeSession(tokenHash);
+    }
+    this.sessions.delete(tokenHash);
   }
 
   removeExpired() {

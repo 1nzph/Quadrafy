@@ -62,7 +62,7 @@ npm start
 
 ## Persistência e segurança
 
-Usuários, clubes, quadras, reservas, mensagens, nivelamentos, recorrências e
+Usuários, clubes, quadras, mensagens, nivelamentos, recorrências e
 auditoria ficam em arquivos JSON separados em `backend/data/`. Imagens ficam em
 `backend/data/uploads/`. As senhas usam `scrypt` e nunca são salvas em texto
 puro.

@@ -163,6 +163,18 @@ test("court deletion reports and cancels future bookings after explicit confirma
   });
   const court = (await createdResponse.json()).data.court;
   const player = await register("player", "booking");
+  await api("/api/v1/player/level-test", {
+    method: "POST",
+    cookie: player.cookie,
+    body: {
+      tempo_pratica: 2,
+      frequencia_semanal: 2,
+      experiencia_esportes_raquete: 2,
+      autoavaliacao_golpes: 2,
+      experiencia_competicoes: 2,
+      tatica_posicionamento: 2,
+    },
+  });
   const bookingResponse = await api("/api/v1/player/bookings", {
     method: "POST",
     cookie: player.cookie,
@@ -170,8 +182,7 @@ test("court deletion reports and cancels future bookings after explicit confirma
       clubId: club.id,
       courtId: court.id,
       startAt: futureStart(),
-      paymentMethod: "pix",
-      visibility: "private",
+      levelCategories: null,
     },
   });
   assert.equal(bookingResponse.status, 201);

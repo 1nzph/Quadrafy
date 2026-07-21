@@ -10,13 +10,11 @@ test("gamesByDay includes every date and groups confirmed games by the Brazil bo
         courtId: "court-1",
         startAt: "2026-07-02T01:30:00.000Z",
         status: "confirmed",
-        visibility: "private",
       },
       {
         courtId: "court-1",
         startAt: "2026-07-03T15:00:00.000Z",
         status: "cancelled",
-        visibility: "private",
       },
     ],
     courts: [],
@@ -33,26 +31,23 @@ test("gamesByDay includes every date and groups confirmed games by the Brazil bo
   ]);
 });
 
-test("computes occupancy, visibility breakdown and previous-period totals", () => {
+test("computes occupancy by court and previous-period totals", () => {
   const result = computeOccupancyAnalytics({
     bookings: [
       {
         courtId: "court-1",
         startAt: "2026-07-01T12:00:00.000Z",
         status: "confirmed",
-        visibility: "open",
       },
       {
         courtId: "court-1",
         startAt: "2026-07-02T12:00:00.000Z",
         status: "confirmed",
-        visibility: "private",
       },
       {
         courtId: "court-1",
         startAt: "2026-06-30T12:00:00.000Z",
         status: "confirmed",
-        visibility: "private",
       },
     ],
     courts: [
@@ -79,12 +74,5 @@ test("computes occupancy, visibility breakdown and previous-period totals", () =
       occupancyRate: 50,
     },
   ]);
-  assert.deepEqual(
-    result.byVisibility.map((entry) => [entry.visibility, entry.games]),
-    [
-      ["open", 1],
-      ["private", 1],
-    ],
-  );
   assert.deepEqual(result.previousPeriod, { games: 1 });
 });

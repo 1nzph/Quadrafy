@@ -256,7 +256,7 @@ test("club, court, booking, open match and finance form one persisted flow", asy
         clubId: club.id,
         courtId: court.id,
         startAt: privateBookingStart,
-        visibility: "private",
+        levelCategories: null,
       },
     });
     assert.equal(pixBookingCreation.status, 201);
@@ -265,7 +265,6 @@ test("club, court, booking, open match and finance form one persisted flow", asy
     assert.equal(pixBooking.courtId, court.id);
     assert.equal(pixBooking.referencePrice, 180);
     assert.equal(pixBooking.status, "confirmed");
-    assert.equal(pixBooking.visibility, "private");
 
     const playerBookings = await api("/api/v1/player/bookings", {
       cookie: player.cookie,
@@ -288,7 +287,9 @@ test("club, court, booking, open match and finance form one persisted flow", asy
       cookie: player.cookie,
     });
     assert.equal(matchesBeforeOpenBooking.status, 200);
-    assert.deepEqual((await matchesBeforeOpenBooking.json()).data.matches, []);
+    const matchesBefore = (await matchesBeforeOpenBooking.json()).data.matches;
+    assert.equal(matchesBefore.length, 1);
+    assert.equal(matchesBefore[0].id, pixBooking.id);
 
     const openBookingCreation = await api("/api/v1/player/bookings", {
       method: "POST",
@@ -297,24 +298,21 @@ test("club, court, booking, open match and finance form one persisted flow", asy
         clubId: club.id,
         courtId: court.id,
         startAt: openBookingStart,
-        visibility: "open",
-        levelMin: 0.5,
-        levelMax: 7,
-        availableSpots: 2,
+        levelCategories: null,
       },
     });
     assert.equal(openBookingCreation.status, 201);
     const openBooking = (await openBookingCreation.json()).data.booking;
-    assert.equal(openBooking.visibility, "open");
 
     const openMatches = await api("/api/v1/matches", {
       cookie: player.cookie,
     });
     assert.equal(openMatches.status, 200);
     const matches = (await openMatches.json()).data.matches;
-    assert.equal(matches.length, 1);
-    assert.equal(matches[0].id, openBooking.id);
-    assert.equal(matches[0].availableSpots, 3);
+    assert.equal(matches.length, 2);
+    const createdMatch = matches.find((match) => match.id === openBooking.id);
+    assert.ok(createdMatch);
+    assert.equal(createdMatch.availableSpots, 3);
 
     const matchDetail = await api(`/api/v1/matches/${openBooking.id}`, {
       cookie: player.cookie,
@@ -421,16 +419,6 @@ test("club, court, booking, open match and finance form one persisted flow", asy
       2,
     );
     assert.equal(financeData.occupancyByCourt.length, 1);
-    assert.equal(
-      financeData.byVisibility.find((item) => item.visibility === "private")
-        .games,
-      1,
-    );
-    assert.equal(
-      financeData.byVisibility.find((item) => item.visibility === "open")
-        .games,
-      1,
-    );
     assert.equal(typeof financeData.previousPeriod.games, "number");
     assert.equal(financeData.bookings.length, 2);
     assert.ok(
@@ -465,6 +453,18 @@ test("monthly occupancy includes future and late month-end games but excludes th
     const player = await registerPlayer(api, "financeiro-mensal", {
       omitLevel: true,
     });
+    await api("/api/v1/player/level-test", {
+      method: "POST",
+      cookie: player.cookie,
+      body: {
+        tempo_pratica: 2,
+        frequencia_semanal: 2,
+        experiencia_esportes_raquete: 2,
+        autoavaliacao_golpes: 2,
+        experiencia_competicoes: 2,
+        tatica_posicionamento: 2,
+      },
+    });
 
     const today = brazilDateKey();
     const tomorrow = brazilDateKey(new Date(Date.now() + 24 * 60 * 60 * 1000));
@@ -480,7 +480,7 @@ test("monthly occupancy includes future and late month-end games but excludes th
           clubId: club.id,
           courtId: court.id,
           startAt: bookingStartAt(date, time),
-          visibility: "private",
+          levelCategories: null,
         },
       });
       assert.equal(creation.status, 201);

@@ -56,10 +56,10 @@ function ensureTeams(booking) {
 }
 
 function syncOpenSpots(booking) {
-  booking.openSpots =
-    booking.visibility === "open"
-      ? Math.max(0, booking.maxPlayers - (booking.participantIds?.length ?? 0))
-      : 0;
+  booking.openSpots = Math.max(
+    0,
+    booking.maxPlayers - (booking.participantIds?.length ?? 0),
+  );
 }
 
 export class BookingStore {
@@ -92,7 +92,30 @@ export class BookingStore {
             migrated = true;
           }
         }
-        if (booking.visibility !== "open") return booking;
+        // TASK-88 — jogo privado deixa de existir: todo jogo é aberto, então
+        // jogos antigos marcados como privados viram abertos, mantendo os
+        // jogadores já confirmados e liberando as vagas restantes.
+        if ("visibility" in booking) {
+          delete booking.visibility;
+          migrated = true;
+        }
+        if (!booking.maxPlayers || booking.maxPlayers < 4) {
+          booking.maxPlayers = 4;
+          migrated = true;
+        }
+        // TASK-92 — a faixa numérica de nível vira seleção de categorias
+        // oficiais; jogos antigos perdem a faixa e ficam sem restrição
+        // (todas as categorias) até o jogador editar o jogo novamente.
+        for (const field of ["levelRange", "levelMin", "levelMax"]) {
+          if (field in booking) {
+            delete booking[field];
+            migrated = true;
+          }
+        }
+        if (!("levelCategories" in booking)) {
+          booking.levelCategories = null;
+          migrated = true;
+        }
         const previousTeams = JSON.stringify(booking.teams);
         ensureTeams(booking);
         syncOpenSpots(booking);
@@ -123,10 +146,7 @@ export class BookingStore {
   }
 
   listOpen() {
-    return this.bookings.filter(
-      (booking) =>
-        booking.visibility === "open" && booking.status === "confirmed",
-    );
+    return this.bookings.filter((booking) => booking.status === "confirmed");
   }
 
   listFutureConfirmedByCourt(courtId, now = Date.now()) {
@@ -171,11 +191,8 @@ export class BookingStore {
     clubId,
     courtId,
     startAt,
-    visibility = "private",
-    levelRange = null,
-    levelMin = null,
-    levelMax = null,
-    maxPlayers,
+    levelCategories = null,
+    maxPlayers = 4,
     genderCategory = "all",
     participantIds = [],
     status = "confirmed",
@@ -196,14 +213,10 @@ export class BookingStore {
       }
 
       const now = new Date().toISOString();
-      const resolvedMaxPlayers = maxPlayers ?? (visibility === "open" ? 4 : 1);
       const resolvedParticipantIds = [
         ...new Set([playerId, ...participantIds]),
-      ].slice(0, resolvedMaxPlayers);
-      const teams =
-        visibility === "open"
-          ? teamsFromParticipants(resolvedParticipantIds)
-          : null;
+      ].slice(0, maxPlayers);
+      const teams = teamsFromParticipants(resolvedParticipantIds);
       const booking = {
         id: createId(),
         playerId,
@@ -211,16 +224,10 @@ export class BookingStore {
         courtId,
         startAt,
         // TASK-49: "all" | "women_only" | "men_only" | "mixed"
-        genderCategory: visibility === "open" ? genderCategory : "all",
-        visibility,
-        levelRange,
-        levelMin,
-        levelMax,
-        maxPlayers: resolvedMaxPlayers,
-        participantIds:
-          visibility === "open"
-            ? participantIdsFromTeams(teams)
-            : resolvedParticipantIds,
+        genderCategory,
+        levelCategories,
+        maxPlayers,
+        participantIds: participantIdsFromTeams(teams),
         teams,
         status,
         createdAt: now,
@@ -238,13 +245,6 @@ export class BookingStore {
       const booking = this.findById(bookingId);
       if (!booking) {
         throw new ApiError(404, "match_not_found", "Jogo não encontrado.");
-      }
-      if (booking.visibility !== "open") {
-        throw new ApiError(
-          409,
-          "match_not_open",
-          "Este jogo não está aberto.",
-        );
       }
       if (booking.status !== "confirmed") {
         throw new ApiError(
@@ -321,13 +321,6 @@ export class BookingStore {
       if (!booking) {
         throw new ApiError(404, "match_not_found", "Jogo n\u00e3o encontrado.");
       }
-      if (booking.visibility !== "open") {
-        throw new ApiError(
-          409,
-          "match_not_open",
-          "Este jogo n\u00e3o est\u00e1 aberto.",
-        );
-      }
 
       const participantIds = booking.participantIds ?? [];
       if (!participantIds.includes(playerId)) {
@@ -357,7 +350,7 @@ export class BookingStore {
   async removePlayer(bookingId, organizerId, playerId) {
     return this.enqueueWrite(async () => {
       const booking = this.findById(bookingId);
-      if (!booking || booking.visibility !== "open") {
+      if (!booking) {
         throw new ApiError(404, "match_not_found", "Jogo não encontrado.");
       }
       if (booking.playerId !== organizerId) {
@@ -402,7 +395,7 @@ export class BookingStore {
   async moveSelf(bookingId, playerId, targetTeam, targetSlot) {
     return this.enqueueWrite(async () => {
       const booking = this.findById(bookingId);
-      if (!booking || booking.visibility !== "open") {
+      if (!booking) {
         throw new ApiError(404, "match_not_found", "Jogo não encontrado.");
       }
       const participantIds = booking.participantIds ?? [];
@@ -457,7 +450,7 @@ export class BookingStore {
   async reorganizeTeams(bookingId, organizerId, teams) {
     return this.enqueueWrite(async () => {
       const booking = this.findById(bookingId);
-      if (!booking || booking.visibility !== "open") {
+      if (!booking) {
         throw new ApiError(404, "match_not_found", "Jogo não encontrado.");
       }
       if (booking.playerId !== organizerId) {
@@ -524,23 +517,9 @@ export class BookingStore {
             "Este jogo não pode mais ser alterado.",
           );
         }
-        if (
-          update.visibility === "private" &&
-          (booking.participantIds?.length ?? 0) > 1
-        ) {
-          throw new ApiError(
-            409,
-            "booking_has_participants",
-            "Remova os outros participantes antes de tornar o jogo privado.",
-          );
-        }
-        booking.visibility = update.visibility;
-        booking.levelRange = update.levelRange;
-        booking.levelMin = update.levelMin;
-        booking.levelMax = update.levelMax;
+        booking.levelCategories = update.levelCategories;
         booking.maxPlayers = update.maxPlayers;
-        if (booking.visibility === "open") ensureTeams(booking);
-        else booking.teams = null;
+        ensureTeams(booking);
         syncOpenSpots(booking);
       }
 

@@ -145,7 +145,7 @@ function levelTestAnswers() {
 async function createBooking(
   api,
   playerCookie,
-  { clubId, courtId, startAt, visibility = "private" },
+  { clubId, courtId, startAt, levelCategories = null },
 ) {
   const response = await api("/api/v1/player/bookings", {
     method: "POST",
@@ -154,424 +154,13 @@ async function createBooking(
       clubId,
       courtId,
       startAt,
-      paymentMethod: "pix",
-      visibility,
-      ...(visibility === "open"
-        ? {
-            levelMin: 0.5,
-            levelMax: 7,
-            levelRange: "0.50 - 7.00",
-            availableSpots: 3,
-          }
-        : {}),
+      levelCategories,
     },
   });
   assert.equal(response.status, 201);
   return (await response.json()).data.booking;
 }
 
-test("club owner updates a recurring booking through the public API with an attributable audit event", async () => {
-  await withTestServer(async ({ api, dataDirectory }) => {
-    const clubAccount = await registerClub(api, "editar-recorrencia");
-    const court = await createLegacyCourt(
-      api,
-      clubAccount.cookie,
-      "editar-recorrencia",
-    );
-    const targetCourtResponse = await api("/api/v1/club/courts", {
-      method: "POST",
-      cookie: clubAccount.cookie,
-      body: {
-        name: "Quadra destino 90 minutos",
-        type: "covered",
-        price: 190,
-        openTime: "06:00",
-        closeTime: "23:00",
-        slotDuration: 90,
-      },
-    });
-    assert.equal(targetCourtResponse.status, 201);
-    const targetCourt = (await targetCourtResponse.json()).data.court;
-    const weeklyCreation = await api(
-      `/api/v1/club/courts/${court.id}/recurring-bookings`,
-      {
-        method: "POST",
-        cookie: clubAccount.cookie,
-        body: {
-          clientName: "Cliente original",
-          startTime: "19:00",
-          recurrence: { frequency: "weekly", dayOfWeek: 2 },
-        },
-      },
-    );
-    assert.equal(weeklyCreation.status, 201);
-    const original = (await weeklyCreation.json()).data.recurringBooking;
-    const requestId = "part2-recurring-update-request";
-
-    const updateResponse = await api(
-      `/api/v1/club/recurring-bookings/${original.id}`,
-      {
-        method: "PATCH",
-        cookie: clubAccount.cookie,
-        headers: { "X-Request-Id": requestId },
-        body: {
-          courtId: targetCourt.id,
-          clientName: "Cliente atualizado",
-          startTime: "19:30",
-          recurrence: { frequency: "monthly", dayOfMonth: 15 },
-        },
-      },
-    );
-
-    assert.equal(updateResponse.status, 200);
-    const updated = (await updateResponse.json()).data.recurringBooking;
-    assert.equal(updated.id, original.id);
-    assert.equal(updated.clubId, original.clubId);
-    assert.equal(updated.courtId, targetCourt.id);
-    assert.equal(updated.courtName, targetCourt.name);
-    assert.equal(updated.createdAt, original.createdAt);
-    assert.notEqual(updated.updatedAt, original.updatedAt);
-    assert.equal(updated.clientName, "Cliente atualizado");
-    assert.equal(updated.startTime, "19:30");
-    assert.deepEqual(updated.recurrence, {
-      frequency: "monthly",
-      dayOfMonth: 15,
-    });
-
-    const events = JSON.parse(
-      await readFile(path.join(dataDirectory, "audit-log.json"), "utf8"),
-    );
-    const updateEvent = events.find(
-      (event) =>
-        event.action === "recurring_booking.updated" &&
-        event.resourceId === original.id,
-    );
-    assert.ok(updateEvent);
-    assert.equal(updateEvent.actorId, clubAccount.user.id);
-    assert.equal(updateEvent.requestId, requestId);
-    assert.equal(updateEvent.before.clientName, "Cliente original");
-    assert.equal(updateEvent.before.startTime, "19:00");
-    assert.equal(updateEvent.before.courtId, court.id);
-    assert.equal(updateEvent.after.clientName, "Cliente atualizado");
-    assert.equal(updateEvent.after.startTime, "19:30");
-    assert.equal(updateEvent.after.courtId, targetCourt.id);
-  });
-});
-
-test("recurring booking update rejects a duplicate agenda without changing the original", async () => {
-  await withTestServer(async ({ api }) => {
-    const clubAccount = await registerClub(api, "editar-duplicata");
-    const court = await createLegacyCourt(
-      api,
-      clubAccount.cookie,
-      "editar-duplicata",
-    );
-    const date = futureDateKey(45);
-    const dayOfWeek = new Date(`${date}T12:00:00.000Z`).getUTCDay();
-    async function createRecurring(body) {
-      const response = await api(
-        `/api/v1/club/courts/${court.id}/recurring-bookings`,
-        { method: "POST", cookie: clubAccount.cookie, body },
-      );
-      assert.equal(response.status, 201);
-      return (await response.json()).data.recurringBooking;
-    }
-    const original = await createRecurring({
-      clientName: "Cliente original",
-      startTime: "19:00",
-      recurrence: { frequency: "weekly", dayOfWeek },
-    });
-    await createRecurring({
-      clientName: "Cliente destino",
-      startTime: "20:00",
-      recurrence: { frequency: "weekly", dayOfWeek },
-    });
-
-    const duplicateUpdate = await api(
-      `/api/v1/club/recurring-bookings/${original.id}`,
-      {
-        method: "PATCH",
-        cookie: clubAccount.cookie,
-        body: {
-          courtId: court.id,
-          clientName: "Não deve persistir",
-          startTime: "20:00",
-          recurrence: { frequency: "weekly", dayOfWeek },
-        },
-      },
-    );
-
-    assert.equal(duplicateUpdate.status, 409);
-    assert.equal(
-      (await duplicateUpdate.json()).error.code,
-      "recurring_booking_conflict",
-    );
-    const scheduleResponse = await api(`/api/v1/club/schedule?date=${date}`, {
-      cookie: clubAccount.cookie,
-    });
-    assert.equal(scheduleResponse.status, 200);
-    const persisted = (await scheduleResponse.json()).data.recurringBookings;
-    assert.equal(
-      persisted.find((entry) => entry.id === original.id)?.clientName,
-      "Cliente original",
-    );
-  });
-});
-
-test("weekly and monthly recurrences cannot overlap on the same court and time", async () => {
-  await withTestServer(async ({ api }) => {
-    const owner = await registerClub(api, "recorrencia-cruzada");
-    const court = await createLegacyCourt(
-      api,
-      owner.cookie,
-      "recorrencia-cruzada",
-    );
-
-    const weekly = await api(
-      `/api/v1/club/courts/${court.id}/recurring-bookings`,
-      {
-        method: "POST",
-        cookie: owner.cookie,
-        body: {
-          clientName: "Cliente Semanal",
-          startTime: "19:00",
-          recurrence: { frequency: "weekly", dayOfWeek: 1 },
-        },
-      },
-    );
-    assert.equal(weekly.status, 201);
-
-    const monthly = await api(
-      `/api/v1/club/courts/${court.id}/recurring-bookings`,
-      {
-        method: "POST",
-        cookie: owner.cookie,
-        body: {
-          clientName: "Cliente Mensal",
-          startTime: "19:00",
-          recurrence: { frequency: "monthly", dayOfMonth: 15 },
-        },
-      },
-    );
-
-    assert.equal(monthly.status, 409);
-    assert.equal(
-      (await monthly.json()).error.code,
-      "recurring_booking_conflict",
-    );
-  });
-});
-
-test("club schedule exposes a consolidated seven-day view", async () => {
-  await withTestServer(async ({ api }) => {
-    const owner = await registerClub(api, "grade-semanal");
-    const court = await createLegacyCourt(api, owner.cookie, "grade-semanal");
-    const from = futureDateKey(30);
-
-    const response = await api(
-      "/api/v1/club/schedule?date=" + from + "&period=week",
-      { cookie: owner.cookie },
-    );
-
-    assert.equal(response.status, 200);
-    const schedule = (await response.json()).data;
-    const expectedLastDate = new Date(from + "T12:00:00.000Z");
-    expectedLastDate.setUTCDate(expectedLastDate.getUTCDate() + 6);
-    assert.equal(schedule.period, "week");
-    assert.equal(schedule.from, from);
-    assert.equal(schedule.to, expectedLastDate.toISOString().slice(0, 10));
-    assert.equal(schedule.days.length, 7);
-    assert.equal(schedule.days[0].date, from);
-    assert.equal(schedule.days.at(-1).date, schedule.to);
-    assert.equal(schedule.days[0].courts[0].courtId, court.id);
-    assert.ok(schedule.days.every((day) => Array.isArray(day.courts)));
-
-    const invalid = await api(
-      "/api/v1/club/schedule?date=" + from + "&period=month",
-      { cookie: owner.cookie },
-    );
-    assert.equal(invalid.status, 422);
-  });
-});
-
-test("recurring booking update rejects a confirmed one-off booking conflict", async () => {
-  await withTestServer(async ({ api }) => {
-    const clubAccount = await registerClub(api, "editar-conflito-avulso");
-    const court = await createLegacyCourt(
-      api,
-      clubAccount.cookie,
-      "editar-conflito-avulso",
-    );
-    const player = await registerPlayer(api, "editar-conflito-avulso");
-    const date = futureDateKey(30);
-    const dayOfWeek = new Date(`${date}T12:00:00.000Z`).getUTCDay();
-    const creation = await api(
-      `/api/v1/club/courts/${court.id}/recurring-bookings`,
-      {
-        method: "POST",
-        cookie: clubAccount.cookie,
-        body: {
-          clientName: "Cliente recorrente",
-          startTime: "19:00",
-          recurrence: { frequency: "weekly", dayOfWeek },
-        },
-      },
-    );
-    assert.equal(creation.status, 201);
-    const recurring = (await creation.json()).data.recurringBooking;
-    await createBooking(api, player.cookie, {
-      clubId: clubAccount.club.id,
-      courtId: court.id,
-      startAt: bookingStartAt(date, "20:00"),
-    });
-
-    const conflictingUpdate = await api(
-      `/api/v1/club/recurring-bookings/${recurring.id}`,
-      {
-        method: "PATCH",
-        cookie: clubAccount.cookie,
-        body: {
-          courtId: court.id,
-          clientName: "Cliente não alterado",
-          startTime: "20:00",
-          recurrence: { frequency: "weekly", dayOfWeek },
-        },
-      },
-    );
-
-    assert.equal(conflictingUpdate.status, 409);
-    assert.equal(
-      (await conflictingUpdate.json()).error.code,
-      "recurring_booking_conflict",
-    );
-    const scheduleResponse = await api(`/api/v1/club/schedule?date=${date}`, {
-      cookie: clubAccount.cookie,
-    });
-    assert.equal(scheduleResponse.status, 200);
-    const schedule = (await scheduleResponse.json()).data;
-    const originalSlot = schedule.courts
-      .find((entry) => entry.courtId === court.id)
-      .slots.find((slot) => slot.time === "19:00");
-    assert.equal(originalSlot.recurringBooking.id, recurring.id);
-    assert.equal(
-      originalSlot.recurringBooking.clientName,
-      "Cliente recorrente",
-    );
-  });
-});
-
-test("recurring booking update is restricted to its owner and a complete valid target court slot", async () => {
-  await withTestServer(async ({ api }) => {
-    const owner = await registerClub(api, "editar-seguranca-dono");
-    const ownerCourt = await createLegacyCourt(
-      api,
-      owner.cookie,
-      "editar-seguranca-dono",
-    );
-    const outsider = await registerClub(api, "editar-seguranca-terceiro");
-    const outsiderCourt = await createLegacyCourt(
-      api,
-      outsider.cookie,
-      "editar-seguranca-terceiro",
-    );
-    const creation = await api(
-      `/api/v1/club/courts/${ownerCourt.id}/recurring-bookings`,
-      {
-        method: "POST",
-        cookie: owner.cookie,
-        body: {
-          clientName: "Cliente protegido",
-          startTime: "19:00",
-          recurrence: { frequency: "weekly", dayOfWeek: 2 },
-        },
-      },
-    );
-    assert.equal(creation.status, 201);
-    const recurring = (await creation.json()).data.recurringBooking;
-    const validBody = {
-      courtId: ownerCourt.id,
-      clientName: "Cliente protegido",
-      startTime: "20:00",
-      recurrence: { frequency: "monthly", dayOfMonth: 10 },
-    };
-
-    const outsiderUpdate = await api(
-      `/api/v1/club/recurring-bookings/${recurring.id}`,
-      {
-        method: "PATCH",
-        cookie: outsider.cookie,
-        body: { ...validBody, courtId: outsiderCourt.id },
-      },
-    );
-    assert.equal(outsiderUpdate.status, 404);
-    assert.equal(
-      (await outsiderUpdate.json()).error.code,
-      "recurring_booking_not_found",
-    );
-
-    const foreignCourtUpdate = await api(
-      `/api/v1/club/recurring-bookings/${recurring.id}`,
-      {
-        method: "PATCH",
-        cookie: owner.cookie,
-        body: { ...validBody, courtId: outsiderCourt.id },
-      },
-    );
-    assert.equal(foreignCourtUpdate.status, 404);
-    assert.equal(
-      (await foreignCourtUpdate.json()).error.code,
-      "court_not_found",
-    );
-
-    const incompleteUpdate = await api(
-      `/api/v1/club/recurring-bookings/${recurring.id}`,
-      {
-        method: "PATCH",
-        cookie: owner.cookie,
-        body: {
-          clientName: "Sem quadra",
-          startTime: "20:00",
-          recurrence: { frequency: "monthly", dayOfMonth: 10 },
-        },
-      },
-    );
-    assert.equal(incompleteUpdate.status, 422);
-    assert.equal(
-      (await incompleteUpdate.json()).error.code,
-      "validation_failed",
-    );
-
-    const misalignedSlotUpdate = await api(
-      `/api/v1/club/recurring-bookings/${recurring.id}`,
-      {
-        method: "PATCH",
-        cookie: owner.cookie,
-        body: { ...validBody, startTime: "19:30" },
-      },
-    );
-    assert.equal(misalignedSlotUpdate.status, 422);
-    assert.equal(
-      (await misalignedSlotUpdate.json()).error.code,
-      "invalid_slot",
-    );
-
-    const deactivation = await api(`/api/v1/club/courts/${ownerCourt.id}`, {
-      method: "PATCH",
-      cookie: owner.cookie,
-      body: { active: false },
-    });
-    assert.equal(deactivation.status, 200);
-    const inactiveCourtUpdate = await api(
-      `/api/v1/club/recurring-bookings/${recurring.id}`,
-      { method: "PATCH", cookie: owner.cookie, body: validBody },
-    );
-    assert.equal(inactiveCourtUpdate.status, 404);
-    assert.equal(
-      (await inactiveCourtUpdate.json()).error.code,
-      "court_not_found",
-    );
-  });
-});
 
 test("player edits the persisted profile and receives a deterministic level fallback without an API key", async () => {
   await withTestServer(async ({ api }) => {
@@ -684,7 +273,6 @@ test("match chat is visible and writable only to confirmed participants", async 
       clubId: clubAccount.club.id,
       courtId: court.id,
       startAt: bookingStartAt(futureDateKey(30), "19:00"),
-      visibility: "open",
     });
 
     const outsiderReading = await api(`/api/v1/matches/${match.id}/messages`, {
@@ -759,7 +347,7 @@ test("match chat is visible and writable only to confirmed participants", async 
   });
 });
 
-test("booking detail supports opening with three fixed spots, protects participants and cancels", async () => {
+test("booking detail is always open with three fixed spots, protects non-participants and cancels", async () => {
   await withTestServer(async ({ api }) => {
     const clubAccount = await registerClub(api, "detalhe-reserva");
     const court = await createLegacyCourt(
@@ -769,6 +357,18 @@ test("booking detail supports opening with three fixed spots, protects participa
     );
     const owner = await registerPlayer(api, "reserva-dono");
     const participant = await registerPlayer(api, "reserva-participante");
+    const ownerLevelResponse = await api("/api/v1/player/level-test", {
+      method: "POST",
+      cookie: owner.cookie,
+      body: levelTestAnswers(),
+    });
+    assert.equal(ownerLevelResponse.status, 200);
+    const levelResponse = await api("/api/v1/player/level-test", {
+      method: "POST",
+      cookie: participant.cookie,
+      body: levelTestAnswers(),
+    });
+    assert.equal(levelResponse.status, 200);
     const date = futureDateKey(40);
     const startAt = bookingStartAt(date, "18:00");
     const booking = await createBooking(api, owner.cookie, {
@@ -788,49 +388,15 @@ test("booking detail supports opening with three fixed spots, protects participa
     assert.equal(detail.startAt, startAt);
     assert.equal(detail.referencePrice, 160);
     assert.equal(detail.status, "confirmed");
-    assert.equal(detail.visibility, "private");
+    assert.equal(detail.maxPlayers, 4);
+    assert.equal(detail.openSpots, 3);
     assert.equal(detail.canCancel, true);
 
-    const privateDetailLeak = await api(
+    const nonParticipantDetailLeak = await api(
       `/api/v1/player/bookings/${booking.id}`,
       { cookie: participant.cookie },
     );
-    assert.equal(privateDetailLeak.status, 404);
-
-    const levelResponse = await api("/api/v1/player/level-test", {
-      method: "POST",
-      cookie: participant.cookie,
-      body: levelTestAnswers(),
-    });
-    assert.equal(levelResponse.status, 200);
-    const participantLevel = (await levelResponse.json()).data.result
-      .nivel_inicial;
-    const ownerLevelResponse = await api("/api/v1/player/level-test", {
-      method: "POST",
-      cookie: owner.cookie,
-      body: levelTestAnswers(),
-    });
-    assert.equal(ownerLevelResponse.status, 200);
-    const levelMin = Math.max(0, participantLevel - 0.5);
-    const levelMax = Math.min(7, participantLevel + 0.5);
-
-    const openResponse = await api(`/api/v1/player/bookings/${booking.id}`, {
-      method: "PATCH",
-      cookie: owner.cookie,
-      body: {
-        visibility: "open",
-        levelMin,
-        levelMax,
-        availableSpots: 1,
-      },
-    });
-    assert.equal(openResponse.status, 200);
-    const openedBooking = (await openResponse.json()).data.booking;
-    assert.equal(openedBooking.visibility, "open");
-    assert.equal(openedBooking.levelMin, levelMin);
-    assert.equal(openedBooking.levelMax, levelMax);
-    assert.equal(openedBooking.maxPlayers, 4);
-    assert.equal(openedBooking.openSpots, 3);
+    assert.equal(nonParticipantDetailLeak.status, 404);
 
     const openMatches = await api("/api/v1/matches", {
       cookie: participant.cookie,
@@ -847,27 +413,6 @@ test("booking detail supports opening with three fixed spots, protects participa
       cookie: participant.cookie,
     });
     assert.equal(join.status, 200);
-
-    const participantMutation = await api(
-      `/api/v1/player/bookings/${booking.id}`,
-      {
-        method: "PATCH",
-        cookie: participant.cookie,
-        body: { visibility: "private" },
-      },
-    );
-    assert.equal(participantMutation.status, 404);
-
-    const privateAgain = await api(`/api/v1/player/bookings/${booking.id}`, {
-      method: "PATCH",
-      cookie: owner.cookie,
-      body: { visibility: "private" },
-    });
-    assert.equal(privateAgain.status, 409);
-    assert.equal(
-      (await privateAgain.json()).error.code,
-      "booking_has_participants",
-    );
 
     const cancellation = await api(`/api/v1/player/bookings/${booking.id}`, {
       method: "PATCH",
@@ -976,161 +521,3 @@ test("court creation accepts half-hour boundaries and generates only 60 or 90 mi
   });
 });
 
-test("weekly and monthly recurring bookings consolidate the club schedule, block players and release slots on delete", async () => {
-  await withTestServer(async ({ api }) => {
-    const clubAccount = await registerClub(api, "recorrencias");
-    const court = await createLegacyCourt(
-      api,
-      clubAccount.cookie,
-      "recorrencias",
-    );
-    const player = await registerPlayer(api, "recorrencias");
-    const date = futureDateKey(45);
-    const dayOfWeek = new Date(`${date}T12:00:00.000Z`).getUTCDay();
-    const dayOfMonth = Number(date.slice(-2));
-
-    async function createRecurring(body) {
-      return api(`/api/v1/club/courts/${court.id}/recurring-bookings`, {
-        method: "POST",
-        cookie: clubAccount.cookie,
-        body,
-      });
-    }
-
-    const weeklyResponse = await createRecurring({
-      clientName: "Cliente Semanal",
-      startTime: "19:00",
-      recurrence: { frequency: "weekly", dayOfWeek },
-    });
-    assert.equal(weeklyResponse.status, 201);
-    const weekly = (await weeklyResponse.json()).data.recurringBooking;
-    assert.equal(weekly.courtId, court.id);
-    assert.equal(weekly.clientName, "Cliente Semanal");
-    assert.equal(weekly.startTime, "19:00");
-    assert.deepEqual(weekly.recurrence, {
-      frequency: "weekly",
-      dayOfWeek,
-    });
-
-    const monthlyResponse = await createRecurring({
-      clientName: "Cliente Mensal",
-      startTime: "20:00",
-      recurrence: { frequency: "monthly", dayOfMonth },
-    });
-    assert.equal(monthlyResponse.status, 201);
-    const monthly = (await monthlyResponse.json()).data.recurringBooking;
-    assert.deepEqual(monthly.recurrence, {
-      frequency: "monthly",
-      dayOfMonth,
-    });
-
-    const scheduleResponse = await api(`/api/v1/club/schedule?date=${date}`, {
-      cookie: clubAccount.cookie,
-    });
-    assert.equal(scheduleResponse.status, 200);
-    const schedule = (await scheduleResponse.json()).data;
-    assert.equal(schedule.date, date);
-    assert.deepEqual(
-      new Set(schedule.recurringBookings.map((item) => item.id)),
-      new Set([weekly.id, monthly.id]),
-    );
-    const scheduledCourt = schedule.courts.find(
-      (item) => item.courtId === court.id,
-    );
-    assert.equal(scheduledCourt.courtName, court.name);
-    assert.equal(scheduledCourt.slotDurationMinutes, 60);
-    const weeklySlot = scheduledCourt.slots.find(
-      (slot) => slot.time === "19:00",
-    );
-    const monthlySlot = scheduledCourt.slots.find(
-      (slot) => slot.time === "20:00",
-    );
-    assert.equal(weeklySlot.status, "recurring");
-    assert.equal(weeklySlot.recurringBooking.id, weekly.id);
-    assert.equal(monthlySlot.status, "recurring");
-    assert.equal(monthlySlot.recurringBooking.id, monthly.id);
-
-    const blockedAvailabilityResponse = await api(
-      `/api/v1/clubs/${clubAccount.club.id}?date=${date}`,
-    );
-    assert.equal(blockedAvailabilityResponse.status, 200);
-    const blockedCourt = (
-      await blockedAvailabilityResponse.json()
-    ).data.availability.find((item) => item.courtId === court.id);
-    assert.equal(
-      blockedCourt.slots.find((slot) => slot.time === "19:00").available,
-      false,
-    );
-    assert.equal(
-      blockedCourt.slots.find((slot) => slot.time === "20:00").available,
-      false,
-    );
-
-    const blockedBooking = await api("/api/v1/player/bookings", {
-      method: "POST",
-      cookie: player.cookie,
-      body: {
-        clubId: clubAccount.club.id,
-        courtId: court.id,
-        startAt: bookingStartAt(date, "19:00"),
-        paymentMethod: "venue",
-        visibility: "private",
-      },
-    });
-    assert.equal(blockedBooking.status, 409);
-
-    const deleteWeekly = await api(
-      `/api/v1/club/recurring-bookings/${weekly.id}`,
-      { method: "DELETE", cookie: clubAccount.cookie },
-    );
-    assert.equal(deleteWeekly.status, 204);
-
-    const partiallyReleasedResponse = await api(
-      `/api/v1/clubs/${clubAccount.club.id}?date=${date}`,
-    );
-    assert.equal(partiallyReleasedResponse.status, 200);
-    const partiallyReleasedCourt = (
-      await partiallyReleasedResponse.json()
-    ).data.availability.find((item) => item.courtId === court.id);
-    assert.equal(
-      partiallyReleasedCourt.slots.find((slot) => slot.time === "19:00")
-        .available,
-      true,
-    );
-    assert.equal(
-      partiallyReleasedCourt.slots.find((slot) => slot.time === "20:00")
-        .available,
-      false,
-    );
-
-    const releasedBooking = await createBooking(api, player.cookie, {
-      clubId: clubAccount.club.id,
-      courtId: court.id,
-      startAt: bookingStartAt(date, "19:00"),
-    });
-    assert.equal(releasedBooking.status, "confirmed");
-
-    const deleteMonthly = await api(
-      `/api/v1/club/recurring-bookings/${monthly.id}`,
-      { method: "DELETE", cookie: clubAccount.cookie },
-    );
-    assert.equal(deleteMonthly.status, 204);
-
-    const finalScheduleResponse = await api(
-      `/api/v1/club/schedule?date=${date}`,
-      { cookie: clubAccount.cookie },
-    );
-    assert.equal(finalScheduleResponse.status, 200);
-    const finalCourt = (await finalScheduleResponse.json()).data.courts.find(
-      (item) => item.courtId === court.id,
-    );
-    assert.equal(
-      finalCourt.slots.find((slot) => slot.time === "19:00").status,
-      "booked",
-    );
-    assert.equal(
-      finalCourt.slots.find((slot) => slot.time === "20:00").status,
-      "available",
-    );
-  });
-});

@@ -39,23 +39,15 @@
             aria-label="Mensagens não lidas"
           ></span>
         </button>
+        <button type="button" data-player-tab="clubs">
+          Clubes
+        </button>
         <button type="button" data-player-tab="bookings">
           Meus jogos
           <span class="nav-count hidden" data-booking-count></span>
         </button>
-        <button type="button" data-player-tab="clubs">
-          Clubes
-        </button>
         <button type="button" data-player-tab="super8">
           Super 8
-        </button>
-        <button type="button" data-player-tab="history">
-          Histórico
-          <span
-            class="nav-count hidden"
-            data-history-count
-            aria-label="Partidas aguardando lançamento de resultado"
-          ></span>
         </button>
         <button type="button" data-player-tab="ranking">Ranking</button>
         <button type="button" data-player-tab="profile">Perfil</button>
@@ -234,11 +226,21 @@
           </div>
           <div class="segment-tabs" data-booking-segments>
             <button class="active" type="button" data-segment="upcoming">
-              Próximas
+              Próximos
               <span class="hidden" data-booking-upcoming-count></span></button
-            ><button type="button" data-segment="past">Histórico</button>
+            ><button type="button" data-segment="history">
+              Histórico
+              <span
+                class="nav-count hidden"
+                data-history-count
+                aria-label="Partidas aguardando lançamento de resultado"
+              ></span></button
+            >
           </div>
           <div class="booking-list" data-booking-list></div>
+          <div class="match-grid hidden" data-history-grid>
+            <p class="profile-data-note">Carregando histórico…</p>
+          </div>
         </div>
       </section>
 
@@ -285,24 +287,6 @@
           </section>
           <p class="micro-label match-available-label">Disponíveis para entrar</p>
           <div class="match-grid" data-match-grid></div>
-        </div>
-      </section>
-
-      <section class="app-view" data-player-view="history">
-        <div class="app-container">
-          <div class="app-heading">
-            <div>
-              <p class="eyebrow dark">Partidas que já começaram</p>
-              <h1>Seu <em>histórico.</em></h1>
-              <p>
-                Jogos cujo horário de início já passou. Lance e confirme os
-                resultados para atualizar os níveis.
-              </p>
-            </div>
-          </div>
-          <div class="match-grid" data-history-grid>
-            <p class="profile-data-note">Carregando histórico…</p>
-          </div>
         </div>
       </section>
 
@@ -608,28 +592,7 @@
             <small data-modal-date>—</small><strong data-modal-time>—</strong>
           </div>
         </div>
-        <fieldset class="booking-visibility" data-booking-visibility>
-          <legend>Como será o jogo?</legend>
-          <div class="visibility-options">
-            <label class="active">
-              <input type="radio" name="visibility" value="private" checked />
-              <span>
-                <strong>Jogo privado</strong>
-                <small>Só você (e quem você convidar) vê este jogo.</small>
-              </span>
-              <i></i>
-            </label>
-            <label>
-              <input type="radio" name="visibility" value="open" />
-              <span>
-                <strong>Jogo em aberto</strong>
-                <small>Outros jogadores podem encontrar e entrar.</small>
-              </span>
-              <i></i>
-            </label>
-          </div>
-        </fieldset>
-        <div class="open-match-fields hidden" data-open-match-fields>
+        <div class="open-match-fields" data-open-match-fields>
           <div class="invite-players-block">
             <p class="micro-label">Adicionar jogadores agora (opcional)</p>
             <p class="profile-data-note">
@@ -662,38 +625,67 @@
               <option value="mixed">Misto (1 homem + 1 mulher por dupla)</option>
             </select>
           </label>
-          <label class="input-group">
-            <span
-              >Nível mínimo:
-              <output data-booking-level-min-output>0,50</output></span
+          <fieldset class="super8-fieldset">
+            <legend>Categorias permitidas</legend>
+            <label class="super8-category-all">
+              <input type="checkbox" data-booking-categories-all checked />
+              <span>Todas as categorias</span>
+            </label>
+            <div
+              class="super8-categories-grid hidden"
+              data-booking-categories-grid
             >
-            <input
-              type="range"
-              name="levelMin"
-              min="0.5"
-              max="7"
-              step="0.01"
-              value="0.5"
-              data-booking-level-min
-              aria-label="Nível mínimo da partida"
-            />
-          </label>
-          <label class="input-group">
-            <span
-              >Nível máximo:
-              <output data-booking-level-max-output>7,00</output></span
-            >
-            <input
-              type="range"
-              name="levelMax"
-              min="0.5"
-              max="7"
-              step="0.01"
-              value="7"
-              data-booking-level-max
-              aria-label="Nível máximo da partida"
-            />
-          </label>
+              <label
+                ><input
+                  type="checkbox"
+                  name="levelCategories"
+                  value="Iniciante"
+                /><span>Iniciante</span></label
+              >
+              <label
+                ><input
+                  type="checkbox"
+                  name="levelCategories"
+                  value="Iniciante Intermediário"
+                /><span>Iniciante Intermediário</span></label
+              >
+              <label
+                ><input
+                  type="checkbox"
+                  name="levelCategories"
+                  value="Intermediário"
+                /><span>Intermediário</span></label
+              >
+              <label
+                ><input
+                  type="checkbox"
+                  name="levelCategories"
+                  value="Intermediário Avançado"
+                /><span>Intermediário Avançado</span></label
+              >
+              <label
+                ><input
+                  type="checkbox"
+                  name="levelCategories"
+                  value="Avançado"
+                /><span>Avançado</span></label
+              >
+              <label
+                ><input
+                  type="checkbox"
+                  name="levelCategories"
+                  value="Avançado Elevado"
+                /><span>Avançado Elevado</span></label
+              >
+              <label
+                ><input
+                  type="checkbox"
+                  name="levelCategories"
+                  value="Elite"
+                /><span>Elite</span></label
+              >
+            </div>
+          </fieldset>
           <p class="secure-note">
             A partida será publicada com três vagas, completando quatro
             jogadores.
@@ -1050,71 +1042,72 @@
         <h2 id="booking-detail-title" data-booking-detail-title>Jogo</h2>
         <div class="match-detail-summary" data-booking-detail-summary></div>
         <form data-booking-detail-form>
-          <fieldset class="booking-visibility" data-booking-detail-visibility>
-            <legend>Visibilidade da partida</legend>
-            <div class="visibility-options">
-              <label>
+          <div class="open-match-fields" data-booking-detail-open-fields>
+            <fieldset class="super8-fieldset">
+              <legend>Categorias permitidas</legend>
+              <label class="super8-category-all">
                 <input
-                  type="radio"
-                  name="bookingDetailVisibility"
-                  value="private"
-                  aria-describedby="booking-private-visibility-note"
+                  type="checkbox"
+                  data-booking-detail-categories-all
+                  checked
                 />
-                <span>
-                  <strong>Jogo privado</strong>
-                  <small
-                    id="booking-private-visibility-note"
-                    data-booking-private-note
-                    >Visível apenas na sua agenda.</small
-                  >
-                </span>
-                <i></i>
+                <span>Todas as categorias</span>
               </label>
-              <label>
-                <input
-                  type="radio"
-                  name="bookingDetailVisibility"
-                  value="open"
-                />
-                <span>
-                  <strong>Jogo em aberto</strong>
-                  <small>Outros jogadores poderão entrar.</small>
-                </span>
-                <i></i>
-              </label>
-            </div>
-          </fieldset>
-          <div class="open-match-fields hidden" data-booking-detail-open-fields>
-            <label class="input-group">
-              <span
-                >Nível mínimo:
-                <output data-booking-detail-level-min-output>0,50</output></span
+              <div
+                class="super8-categories-grid hidden"
+                data-booking-detail-categories-grid
               >
-              <input
-                type="range"
-                min="0.5"
-                max="7"
-                step="0.01"
-                value="0.5"
-                data-booking-detail-level-min
-                aria-label="Nível mínimo do jogo"
-              />
-            </label>
-            <label class="input-group">
-              <span
-                >Nível máximo:
-                <output data-booking-detail-level-max-output>7,00</output></span
-              >
-              <input
-                type="range"
-                min="0.5"
-                max="7"
-                step="0.01"
-                value="7"
-                data-booking-detail-level-max
-                aria-label="Nível máximo do jogo"
-              />
-            </label>
+                <label
+                  ><input
+                    type="checkbox"
+                    name="bookingDetailLevelCategories"
+                    value="Iniciante"
+                  /><span>Iniciante</span></label
+                >
+                <label
+                  ><input
+                    type="checkbox"
+                    name="bookingDetailLevelCategories"
+                    value="Iniciante Intermediário"
+                  /><span>Iniciante Intermediário</span></label
+                >
+                <label
+                  ><input
+                    type="checkbox"
+                    name="bookingDetailLevelCategories"
+                    value="Intermediário"
+                  /><span>Intermediário</span></label
+                >
+                <label
+                  ><input
+                    type="checkbox"
+                    name="bookingDetailLevelCategories"
+                    value="Intermediário Avançado"
+                  /><span>Intermediário Avançado</span></label
+                >
+                <label
+                  ><input
+                    type="checkbox"
+                    name="bookingDetailLevelCategories"
+                    value="Avançado"
+                  /><span>Avançado</span></label
+                >
+                <label
+                  ><input
+                    type="checkbox"
+                    name="bookingDetailLevelCategories"
+                    value="Avançado Elevado"
+                  /><span>Avançado Elevado</span></label
+                >
+                <label
+                  ><input
+                    type="checkbox"
+                    name="bookingDetailLevelCategories"
+                    value="Elite"
+                  /><span>Elite</span></label
+                >
+              </div>
+            </fieldset>
           </div>
           <p
             class="profile-data-note hidden"

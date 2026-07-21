@@ -96,23 +96,12 @@ export function computeOccupancyAnalytics({
     };
   });
 
-  const visibilityLabels = { open: "Jogos abertos", private: "Jogos privados" };
-  const byVisibility = Object.entries(visibilityLabels).map(
-    ([visibility, label]) => ({
-      visibility,
-      label,
-      games: played.filter((booking) => booking.visibility === visibility)
-        .length,
-    }),
-  );
-
   const previous = bookings.filter((booking) =>
     inRange(booking, previousFrom, previousTo),
   );
   return {
     gamesByDay,
     occupancyByCourt,
-    byVisibility,
     previousPeriod: gamesSummary(previous),
   };
 }

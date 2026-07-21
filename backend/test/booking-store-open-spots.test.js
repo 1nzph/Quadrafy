@@ -33,11 +33,7 @@ async function createOpenBooking(store) {
     clubId: "club-1",
     courtId: "court-1",
     startAt: "2099-08-10T22:00:00.000Z",
-    price: 120,
-    paymentMethod: "pix",
-    visibility: "open",
-    levelMin: 2,
-    levelMax: 4,
+    levelCategories: null,
     maxPlayers: 4,
   });
 }
@@ -79,36 +75,27 @@ test("recalculates and persists open spots when a participant leaves", async () 
   });
 });
 
-test("sets zero spots for private bookings and restores capacity when reopened", async () => {
+test("recalculates open spots when maxPlayers changes through an owner update", async () => {
   await withStore(async ({ dataDirectory, store }) => {
     const booking = await createOpenBooking(store);
+    await store.join(booking.id, "player-guest");
 
-    const privateBooking = await store.updateByOwner(
-      booking.id,
-      "player-owner",
-      {
-        visibility: "private",
-        levelRange: null,
-        levelMin: null,
-        levelMax: null,
-        maxPlayers: 1,
-      },
-    );
-    const persistedPrivate = await persistedBooking(dataDirectory, booking.id);
+    const shrunk = await store.updateByOwner(booking.id, "player-owner", {
+      levelCategories: null,
+      maxPlayers: 2,
+    });
+    const persistedShrunk = await persistedBooking(dataDirectory, booking.id);
 
-    assert.equal(privateBooking.openSpots, 0);
-    assert.equal(persistedPrivate.openSpots, 0);
+    assert.equal(shrunk.openSpots, 0);
+    assert.equal(persistedShrunk.openSpots, 0);
 
-    const reopened = await store.updateByOwner(booking.id, "player-owner", {
-      visibility: "open",
-      levelRange: "2.0 a 4.0",
-      levelMin: 2,
-      levelMax: 4,
+    const expanded = await store.updateByOwner(booking.id, "player-owner", {
+      levelCategories: null,
       maxPlayers: 4,
     });
-    const persistedReopened = await persistedBooking(dataDirectory, booking.id);
+    const persistedExpanded = await persistedBooking(dataDirectory, booking.id);
 
-    assert.equal(reopened.openSpots, 3);
-    assert.equal(persistedReopened.openSpots, 3);
+    assert.equal(expanded.openSpots, 2);
+    assert.equal(persistedExpanded.openSpots, 2);
   });
 });

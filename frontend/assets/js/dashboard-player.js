@@ -243,10 +243,12 @@
     );
     $(".app-nav")?.classList.remove("menu-open");
     scrollTo({ top: 0, behavior: "smooth" });
-    if (name === "bookings") loadBookings();
+    if (name === "bookings") {
+      loadBookings();
+      if (state.bookingSegment === "history") loadHistory();
+    }
     if (name === "matches") loadMatches();
     if (name === "ranking") loadRanking();
-    if (name === "history") loadHistory();
     if (name === "super8") openSuper8Screen();
     if (name === "profile") loadProfileExtras();
   }
@@ -536,66 +538,47 @@
     }
   }
 
-  function setupDualRange({ minInput, maxInput, minOutput, maxOutput }) {
-    const minimum = $(minInput);
-    const maximum = $(maxInput);
-    const minimumOutput = $(minOutput);
-    const maximumOutput = $(maxOutput);
-    if (!minimum || !maximum) return () => {};
-
-    const update = (changed) => {
-      if (Number(minimum.value) > Number(maximum.value)) {
-        if (changed === minimum) maximum.value = minimum.value;
-        else minimum.value = maximum.value;
-      }
-      if (minimumOutput) minimumOutput.textContent = formatLevel(minimum.value);
-      if (maximumOutput) maximumOutput.textContent = formatLevel(maximum.value);
-    };
-    minimum.addEventListener("input", () => update(minimum));
-    maximum.addEventListener("input", () => update(maximum));
-    update();
-    return update;
+  // TASK-92 — seleção de categorias oficiais no lugar da faixa numérica de
+  // nível (mesmo componente/padrão já usado no Super 8, TASK-77).
+  function readLevelCategories(allCheckbox, groupSelector) {
+    if (!allCheckbox || allCheckbox.checked) return null;
+    const selected = $$(`${groupSelector} input:checked`).map(
+      (input) => input.value,
+    );
+    return selected.length ? selected : null;
   }
 
-  const updateCreationRange = setupDualRange({
-    minInput: "[data-booking-level-min]",
-    maxInput: "[data-booking-level-max]",
-    minOutput: "[data-booking-level-min-output]",
-    maxOutput: "[data-booking-level-max-output]",
-  });
+  function setLevelCategories(allCheckbox, groupSelector, levelCategories) {
+    if (!allCheckbox) return;
+    const hasRestriction = Boolean(levelCategories?.length);
+    allCheckbox.checked = !hasRestriction;
+    $(groupSelector)?.classList.toggle("hidden", !hasRestriction);
+    $$(`${groupSelector} input`).forEach((input) => {
+      input.checked = hasRestriction && levelCategories.includes(input.value);
+    });
+  }
 
-  const updateDetailRange = setupDualRange({
-    minInput: "[data-booking-detail-level-min]",
-    maxInput: "[data-booking-detail-level-max]",
-    minOutput: "[data-booking-detail-level-min-output]",
-    maxOutput: "[data-booking-detail-level-max-output]",
-  });
-
-  function setVisibilityUI(fieldsetSelector, openFieldsSelector, input) {
-    const fieldset = $(fieldsetSelector);
-    const open = input.checked && input.value === "open";
-    $(openFieldsSelector)?.classList.toggle("hidden", !open);
-    $$("label", fieldset).forEach((label) =>
-      label.classList.toggle("active", label.contains(input) && input.checked),
-    );
+  function setupCategorySelector(allSelector, groupSelector) {
+    const allCheckbox = $(allSelector);
+    allCheckbox?.addEventListener("change", (event) => {
+      $(groupSelector)?.classList.toggle("hidden", event.currentTarget.checked);
+    });
   }
 
   function setupBookingModal() {
     $("[data-open-booking]")?.addEventListener("click", () => {
       // TASK-60: limpa convidados de aberturas anteriores do modal
       resetInvitePlayers();
-      openAccessibleModal($("[data-booking-modal]"), '[name="visibility"]');
+      openAccessibleModal(
+        $("[data-booking-modal]"),
+        "[data-booking-categories-all]",
+      );
     });
     // TASK-60: busca de jogadores para preencher vagas na criação
     setupInviteSearch();
-    $$('[name="visibility"]').forEach((input) =>
-      input.addEventListener("change", () =>
-        setVisibilityUI(
-          "[data-booking-visibility]",
-          "[data-open-match-fields]",
-          input,
-        ),
-      ),
+    setupCategorySelector(
+      "[data-booking-categories-all]",
+      "[data-booking-categories-grid]",
     );
     $("[data-confirm-booking]")?.addEventListener("click", confirmBooking);
   }
@@ -687,18 +670,10 @@
   async function confirmBooking(event, allowConflict = false) {
     if (!state.selectedSlot || !state.selectedClub) return;
     const button = event.currentTarget;
-    const visibility = $('[name="visibility"]:checked').value;
-    const levelMin = Number($("[data-booking-level-min]").value);
-    const levelMax = Number($("[data-booking-level-max]").value);
-    if (
-      visibility === "open" &&
-      (!Number.isFinite(levelMin) ||
-        !Number.isFinite(levelMax) ||
-        levelMin > levelMax)
-    ) {
-      showToast("Escolha uma faixa de nível válida.");
-      return;
-    }
+    const levelCategories = readLevelCategories(
+      $("[data-booking-categories-all]"),
+      "[data-booking-categories-grid]",
+    );
     setBusy(button, true, "Criando…");
     try {
       await apiRequest("/api/v1/player/bookings", {
@@ -707,22 +682,15 @@
           clubId: state.selectedClub.club.id,
           courtId: state.selectedSlot.courtId,
           startAt: state.selectedSlot.startAt,
-          visibility,
           allowConflict,
-          ...(visibility === "open"
+          levelCategories,
+          genderCategory: $("[data-booking-gender-category]")?.value || "all",
+          // TASK-60: convidados confirmados desde a criação
+          ...(inviteState.players.length
             ? {
-                levelMin,
-                levelMax,
-                genderCategory:
-                  $("[data-booking-gender-category]")?.value || "all",
-                // TASK-60: convidados confirmados desde a criação
-                ...(inviteState.players.length
-                  ? {
-                      invitedPlayerIds: inviteState.players.map(
-                        (player) => player.id,
-                      ),
-                    }
-                  : {}),
+                invitedPlayerIds: inviteState.players.map(
+                  (player) => player.id,
+                ),
               }
             : {}),
         },
@@ -730,11 +698,7 @@
       closeModal($("[data-booking-modal]"));
       state.selectedSlot = null;
       await Promise.all([loadBookings(), loadMatches(), fetchClubDetail()]);
-      showToast(
-        visibility === "open"
-          ? "Jogo criado e publicado em aberto com três vagas."
-          : "Jogo criado e adicionado à sua agenda.",
-      );
+      showToast("Jogo criado e publicado em aberto com três vagas.");
       switchView("bookings");
     } catch (error) {
       if (error.code === "booking_conflict" && !allowConflict) {
@@ -775,25 +739,15 @@
         booking.status !== "cancelled" &&
         new Date(booking.startAt).getTime() >= now,
     );
-    const past = state.bookings.filter(
-      (booking) =>
-        booking.status === "cancelled" ||
-        new Date(booking.startAt).getTime() < now,
-    );
-    const list = state.bookingSegment === "upcoming" ? upcoming : past;
     const counter = $("[data-booking-upcoming-count]");
     counter.textContent = String(upcoming.length);
     counter.classList.toggle("hidden", upcoming.length === 0);
     const navCounter = $("[data-booking-count]");
     navCounter.textContent = String(upcoming.length);
     navCounter.classList.toggle("hidden", upcoming.length === 0);
-    $("[data-booking-list]").innerHTML = list.length
-      ? list
-          .sort((a, b) =>
-            state.bookingSegment === "upcoming"
-              ? new Date(a.startAt) - new Date(b.startAt)
-              : new Date(b.startAt) - new Date(a.startAt),
-          )
+    $("[data-booking-list]").innerHTML = upcoming.length
+      ? upcoming
+          .sort((a, b) => new Date(a.startAt) - new Date(b.startAt))
           .map((booking) => {
             const day = formatDate(booking.startAt, { day: "2-digit" });
             const month = formatDate(booking.startAt, { month: "short" })
@@ -806,18 +760,16 @@
               minute: "2-digit",
             });
             const status = bookingStatusLabel(booking.status);
-            const done =
-              state.bookingSegment === "past" || booking.status === "cancelled";
-            return `<article class="booking-item card-hover" data-booking-id="${escapeHTML(booking.id)}" tabindex="0" role="button" aria-label="Ver detalhes do jogo em ${escapeHTML(booking.clubName)}"><div class="booking-date"><small>${escapeHTML(month)}</small><strong>${escapeHTML(day)}</strong></div><div class="booking-info"><h3>${escapeHTML(booking.clubName)}</h3><p>${escapeHTML(booking.courtName)} · ${escapeHTML(time)} · ${booking.visibility === "open" ? "Jogo aberto" : "Privado"}</p></div><div class="booking-actions"><span class="status-badge${done ? " done" : ""}">${escapeHTML(status)}</span><span aria-hidden="true">→</span></div></article>`;
+            const spotsLabel =
+              booking.openSpots > 0
+                ? `${booking.openSpots} vagas abertas`
+                : "Completo";
+            return `<article class="booking-item card-hover" data-booking-id="${escapeHTML(booking.id)}" tabindex="0" role="button" aria-label="Ver detalhes do jogo em ${escapeHTML(booking.clubName)}"><div class="booking-date"><small>${escapeHTML(month)}</small><strong>${escapeHTML(day)}</strong></div><div class="booking-info"><h3>${escapeHTML(booking.clubName)}</h3><p>${escapeHTML(booking.courtName)} · ${escapeHTML(time)} · ${escapeHTML(spotsLabel)}</p></div><div class="booking-actions"><span class="status-badge">${escapeHTML(status)}</span><span aria-hidden="true">→</span></div></article>`;
           })
           .join("")
       : emptyState(
-          state.bookingSegment === "upcoming"
-            ? "Nenhum jogo futuro."
-            : "Seu histórico está vazio.",
-          state.bookingSegment === "upcoming"
-            ? "Escolha um clube e crie seu primeiro jogo."
-            : "As partidas concluídas aparecerão aqui.",
+          "Nenhum jogo futuro.",
+          "Escolha um clube e crie seu primeiro jogo.",
         );
     $$("[data-booking-id]", $("[data-booking-list]")).forEach((item) => {
       const open = () => openBookingDetail(item.dataset.bookingId);
@@ -845,6 +797,9 @@
     }
   }
 
+  // TASK-89 — "Histórico" deixa de ser aba própria e passa a viver como
+  // sub-aba dentro de "Meus jogos", preservando lançamento de resultado,
+  // badge de pendência e variação de nível (antes na TASK-33 do TASKS-08).
   function setupBookingSegments() {
     $$("[data-segment]").forEach((button) =>
       button.addEventListener("click", () => {
@@ -852,36 +807,19 @@
         $$("[data-segment]").forEach((item) =>
           item.classList.toggle("active", item === button),
         );
-        renderBookings();
+        const isHistory = state.bookingSegment === "history";
+        $("[data-booking-list]").classList.toggle("hidden", isHistory);
+        $("[data-history-grid]").classList.toggle("hidden", !isHistory);
+        if (isHistory) loadHistory();
+        else renderBookings();
       }),
     );
   }
 
-  function levelBounds(record) {
-    let levelMin = Number(record.levelMin);
-    let levelMax = Number(record.levelMax);
-    if (!Number.isFinite(levelMin) || !Number.isFinite(levelMax)) {
-      const legacyValues = String(record.levelRange || "")
-        .match(/\d+(?:[.,]\d+)?/g)
-        ?.map((value) => Number(value.replace(",", ".")));
-      if (legacyValues?.length) {
-        [levelMin, levelMax = levelMin] = legacyValues;
-      }
-    }
-    return {
-      levelMin: Number.isFinite(levelMin) ? clampLevel(levelMin) : LEVEL_MIN,
-      levelMax: Number.isFinite(levelMax) ? clampLevel(levelMax) : LEVEL_MAX,
-    };
-  }
-
-  function formatLevelRange(record) {
-    const hasNumericRange =
-      Number.isFinite(Number(record.levelMin)) &&
-      Number.isFinite(Number(record.levelMax));
-    if (hasNumericRange) {
-      return `${formatLevel(record.levelMin)} – ${formatLevel(record.levelMax)}`;
-    }
-    return record.levelRange || "Faixa livre";
+  function formatLevelCategories(record) {
+    return record.levelCategories?.length
+      ? record.levelCategories.join(", ")
+      : "Todas as categorias";
   }
 
   function renderBookingDetail(booking) {
@@ -893,42 +831,18 @@
     // TASK-79 — cancelar é simples, sem prazo/reembolso: só depende de o
     // jogo ainda estar confirmado (o backend não impõe mais janela alguma).
     const canCancel = editable && booking.canCancel;
-    const participantCount =
-      booking.participantIds?.length || booking.players?.length || 1;
-    const privateVisibilityLocked =
-      booking.visibility === "open" && participantCount > 1;
-    const bounds = levelBounds(booking);
     state.currentBooking = booking;
     $("[data-booking-detail-title]").textContent = booking.clubName;
     $("[data-booking-detail-summary]").innerHTML = `
       <div><small>Quadra</small><strong>${escapeHTML(booking.courtName)}</strong></div>
       <div><small>Data e hora</small><strong>${escapeHTML(formatDate(booking.startAt, { day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit" }))}</strong></div>
       <div><small>Preço de referência</small><strong>${escapeHTML(formatCurrency(booking.referencePrice))}</strong></div>
-      <div><small>Status</small><strong>${escapeHTML(bookingStatusLabel(booking.status))}</strong></div>
-      <div><small>Visibilidade</small><strong>${booking.visibility === "open" ? "Jogo aberto" : "Privado"}</strong></div>`;
+      <div><small>Status</small><strong>${escapeHTML(bookingStatusLabel(booking.status))}</strong></div>`;
 
-    $$('[name="bookingDetailVisibility"]', modal).forEach((input) => {
-      const lockedPrivateOption =
-        input.value === "private" && privateVisibilityLocked;
-      input.checked = input.value === booking.visibility;
-      input.disabled = !editable || lockedPrivateOption;
-      const label = input.closest("label");
-      label?.classList.toggle("active", input.checked);
-      label?.setAttribute(
-        "aria-disabled",
-        String(!editable || lockedPrivateOption),
-      );
-    });
-    $("[data-booking-private-note]", modal).textContent =
-      privateVisibilityLocked
-        ? "Indisponível enquanto houver outros jogadores confirmados."
-        : "Visível apenas na sua agenda.";
-    $("[data-booking-detail-level-min]").value = String(bounds.levelMin);
-    $("[data-booking-detail-level-max]").value = String(bounds.levelMax);
-    updateDetailRange();
-    $("[data-booking-detail-open-fields]").classList.toggle(
-      "hidden",
-      booking.visibility !== "open",
+    setLevelCategories(
+      $("[data-booking-detail-categories-all]"),
+      "[data-booking-detail-categories-grid]",
+      booking.levelCategories,
     );
     $$("[data-booking-detail-open-fields] input").forEach((input) => {
       input.disabled = !editable;
@@ -944,15 +858,12 @@
         booking.status === "cancelled"
           ? "Este jogo foi cancelado e não pode mais ser alterado."
           : "Este jogo já começou e não pode mais ser alterado.";
-    } else if (privateVisibilityLocked) {
-      warningText =
-        "Há outros jogadores confirmados. Para proteger os participantes, esta partida não pode ser tornada privada.";
     }
     warning.textContent = warningText;
     warning.classList.toggle("hidden", !warningText);
     $("[data-booking-detail-save]").disabled = !editable;
     $("[data-booking-cancel]").disabled = !canCancel;
-    openAccessibleModal(modal, '[name="bookingDetailVisibility"]:checked');
+    openAccessibleModal(modal, "[data-booking-detail-categories-all]");
   }
 
   async function openBookingDetail(id) {
@@ -971,38 +882,12 @@
     if (!state.currentBooking) return;
     const form = event.currentTarget;
     const button = $("[data-booking-detail-save]", form);
-    const visibility = $(
-      '[name="bookingDetailVisibility"]:checked',
-      form,
-    )?.value;
-    if (!visibility) return;
-    const participantCount =
-      state.currentBooking.participantIds?.length ||
-      state.currentBooking.players?.length ||
-      1;
-    if (
-      state.currentBooking.visibility === "open" &&
-      visibility === "private" &&
-      participantCount > 1
-    ) {
-      const warning = $("[data-booking-detail-warning]", form);
-      warning.textContent =
-        "Há outros jogadores confirmados. Para proteger os participantes, esta partida não pode ser tornada privada.";
-      warning.classList.remove("hidden");
-      showToast(
-        "A partida não pode ser tornada privada enquanto houver outros jogadores confirmados.",
-      );
-      return;
-    }
-    const body = { visibility };
-    if (visibility === "open") {
-      body.levelMin = Number($("[data-booking-detail-level-min]").value);
-      body.levelMax = Number($("[data-booking-detail-level-max]").value);
-      if (body.levelMin > body.levelMax) {
-        showToast("Escolha uma faixa de nível válida.");
-        return;
-      }
-    }
+    const body = {
+      levelCategories: readLevelCategories(
+        $("[data-booking-detail-categories-all]"),
+        "[data-booking-detail-categories-grid]",
+      ),
+    };
     setBusy(button, true, "Salvando…");
     try {
       const { booking } = await apiRequest(
@@ -1012,11 +897,7 @@
       state.currentBooking = booking;
       closeModal($("[data-booking-detail-modal]"));
       await Promise.all([loadBookings(), loadMatches()]);
-      showToast(
-        visibility === "open"
-          ? "Jogo publicado em aberto."
-          : "Jogo atualizado como privado.",
-      );
+      showToast("Jogo atualizado.");
     } catch (error) {
       showToast(error.message);
     } finally {
@@ -1031,8 +912,7 @@
       state.currentBooking.participantIds?.length ||
       state.currentBooking.players?.length ||
       1;
-    const openWithOthers =
-      state.currentBooking.visibility === "open" && participantCount > 1;
+    const openWithOthers = participantCount > 1;
     const confirmed = await confirmAction({
       eyebrow: "Cancelar jogo",
       title: openWithOthers
@@ -1062,14 +942,9 @@
   }
 
   function setupBookingDetail() {
-    $$('[name="bookingDetailVisibility"]').forEach((input) =>
-      input.addEventListener("change", () => {
-        setVisibilityUI(
-          "[data-booking-detail-visibility]",
-          "[data-booking-detail-open-fields]",
-          input,
-        );
-      }),
+    setupCategorySelector(
+      "[data-booking-detail-categories-all]",
+      "[data-booking-detail-categories-grid]",
     );
     $("[data-booking-detail-form]")?.addEventListener(
       "submit",
@@ -1248,7 +1123,7 @@
       <h3>${escapeHTML(match.clubName)}</h3>
       <span class="match-location">${escapeHTML(matchLocation(match))}</span>
       <div class="match-player-list" aria-label="Jogadores e vagas">${matchPlayerSlots(match)}</div>
-      <div class="match-detail"><div><small>${escapeHTML(gameType)}</small><strong>Nível ${escapeHTML(formatLevelRange(match))}</strong></div><div><small>Status</small><strong>${escapeHTML(status)}</strong></div></div>
+      <div class="match-detail"><div><small>${escapeHTML(gameType)}</small><strong>Categorias: ${escapeHTML(formatLevelCategories(match))}</strong></div><div><small>Status</small><strong>${escapeHTML(status)}</strong></div></div>
       <div class="match-players"><span>Ver detalhes antes de entrar</span>${unread ? `<span class="nav-count" aria-label="${unread} mensagens não lidas">${unread}</span>` : ""}</div>
       <span class="button button-outline button-block" aria-hidden="true">Ver detalhes</span>
     </article>`;
@@ -1510,7 +1385,7 @@
       <div class="match-detail-summary">
         <div><small>Quadra</small><strong>${escapeHTML(match.courtName)}</strong></div>
         <div><small>Preço de referência</small><strong>${escapeHTML(formatCurrency(match.referencePrice))}</strong></div>
-        <div><small>Faixa de nível</small><strong>${escapeHTML(formatLevelRange(match))}</strong></div>
+        <div><small>Categorias</small><strong>${escapeHTML(formatLevelCategories(match))}</strong></div>
         <div><small>Duração</small><strong>${escapeHTML(formatDuration(match.slotDuration))}</strong></div>
         <div><small>Data e hora</small><strong>${escapeHTML(formatDate(match.startAt, { day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit" }))}</strong></div>
         <div><small>Jogadores</small><strong>${Math.min(match.participantIds?.length || match.players?.length || 0, 4)}/4 confirmados</strong></div>

@@ -155,10 +155,7 @@ async function createFullMatch(api, app) {
       courtId,
       startAt: bookingStartAt(),
       paymentMethod: "pix",
-      visibility: "open",
-      levelMin: 0.5,
-      levelMax: 7,
-      levelRange: "0.50 - 7.00",
+      levelCategories: null,
       availableSpots: 3,
     },
   });
@@ -351,10 +348,7 @@ test("result reporting requires a full match and rejects inconsistent scores", a
         courtId,
         startAt: bookingStartAt(),
         paymentMethod: "pix",
-        visibility: "open",
-        levelMin: 0.5,
-        levelMax: 7,
-        levelRange: "0.50 - 7.00",
+        levelCategories: null,
         availableSpots: 3,
       },
     });

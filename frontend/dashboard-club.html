@@ -140,13 +140,7 @@
                 type="button"
                 data-preview-arena
               >
-                Ver como jogador</button
-              ><button
-                class="button button-primary"
-                type="button"
-                data-new-booking
-              >
-                + Reserva fixa
+                Ver como jogador
               </button>
             </div>
           </div>
@@ -184,9 +178,9 @@
                 <h2>Grade horária</h2>
                 <p>
                   Visão geral da ocupação para
-                  <strong data-schedule-date>—</strong>. Mostra os jogos
-                  criados no Quadrafy e os compromissos fixos — não é o
-                  sistema oficial de reserva da quadra.
+                  <strong data-schedule-date>—</strong>. Mostra apenas os
+                  jogos criados no Quadrafy — não é o sistema oficial de
+                  reserva da quadra.
                 </p>
               </div>
               <div class="schedule-actions">
@@ -235,13 +229,7 @@
                   aria-label="Próximo dia"
                 >
                   ›</button
-                ><button
-                  class="button button-primary"
-                  type="button"
-                  data-add-recurring
                 >
-                  + Reserva fixa
-                </button>
               </div>
             </div>
             <div
@@ -271,7 +259,7 @@
                     <th>Cliente</th>
                     <th>Quadra</th>
                     <th>Data e hora</th>
-                    <th>Visibilidade</th>
+                    <th>Vagas</th>
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -481,22 +469,6 @@
             <article class="finance-kpi-card">
               <span class="kpi-icon" data-icon="court"></span>
               <div>
-                <small>Jogos em aberto</small>
-                <strong data-finance-kpi-open>—</strong>
-                <small class="finance-comparison">Aberto a novos jogadores</small>
-              </div>
-            </article>
-            <article class="finance-kpi-card">
-              <span class="kpi-icon" data-icon="chart"></span>
-              <div>
-                <small>Jogos privados</small>
-                <strong data-finance-kpi-private>—</strong>
-                <small class="finance-comparison">Só entre convidados</small>
-              </div>
-            </article>
-            <article class="finance-kpi-card">
-              <span class="kpi-icon" data-icon="court"></span>
-              <div>
                 <small>Ocupação média</small>
                 <strong data-finance-kpi-occupancy>—</strong>
                 <small class="finance-comparison">Da grade no período</small>
@@ -526,13 +498,6 @@
               </header>
               <div class="finance-chart" data-chart-occupancy></div>
             </article>
-            <article class="finance-chart-card">
-              <header>
-                <p class="micro-label">Visibilidade</p>
-                <h2>Abertos x privados</h2>
-              </header>
-              <div class="finance-chart" data-chart-payments></div>
-            </article>
           </section>
 
           <section class="finance-breakdown">
@@ -551,7 +516,7 @@
               <div>
                 <p class="micro-label">Movimentações</p>
                 <h2>Jogos do período</h2>
-                <p>Visibilidade e status de cada jogo criado no Quadrafy.</p>
+                <p>Vagas e status de cada jogo criado no Quadrafy.</p>
               </div>
             </div>
             <div class="reservation-table-wrap">
@@ -561,7 +526,7 @@
                     <th>Data</th>
                     <th>Quadra</th>
                     <th>Cliente</th>
-                    <th>Visibilidade</th>
+                    <th>Vagas</th>
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -745,127 +710,6 @@
             data-court-delete-confirm
           >
             Confirmar exclusão
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-backdrop" data-recurring-modal aria-hidden="true">
-      <form
-        class="modal-card court-form-modal"
-        data-recurring-form
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="recurring-modal-title"
-      >
-        <button
-          class="modal-close"
-          type="button"
-          data-modal-close
-          aria-label="Fechar"
-        >
-          ×
-        </button>
-        <p class="eyebrow dark">Agenda recorrente</p>
-        <h2 id="recurring-modal-title" data-recurring-modal-title>
-          Nova reserva fixa.
-        </h2>
-        <p class="modal-description" data-recurring-modal-description>
-          O horário ficará indisponível para novas reservas até esta recorrência
-          ser removida.
-        </p>
-        <label class="input-group">
-          <span>Nome do cliente</span>
-          <input
-            type="text"
-            name="clientName"
-            maxlength="100"
-            autocomplete="name"
-            placeholder="Nome da pessoa responsável"
-            required
-          />
-        </label>
-        <div class="input-grid court-form-grid">
-          <label class="input-group">
-            <span>Quadra</span>
-            <select name="courtId" data-recurring-court required></select>
-          </label>
-          <label class="input-group">
-            <span>Horário de início</span>
-            <select name="startTime" data-recurring-time required></select>
-          </label>
-        </div>
-        <div class="input-grid court-form-grid">
-          <label class="input-group">
-            <span>Recorrência</span>
-            <select name="frequency" data-recurring-frequency required>
-              <option value="weekly">Toda semana</option>
-              <option value="monthly">Todo mês</option>
-            </select>
-          </label>
-          <label class="input-group" data-weekly-day-field>
-            <span>Dia da semana</span>
-            <select name="dayOfWeek" data-recurring-weekday>
-              <option value="0">Domingo</option>
-              <option value="1">Segunda-feira</option>
-              <option value="2">Terça-feira</option>
-              <option value="3">Quarta-feira</option>
-              <option value="4">Quinta-feira</option>
-              <option value="5">Sexta-feira</option>
-              <option value="6">Sábado</option>
-            </select>
-          </label>
-          <label class="input-group hidden" data-monthly-day-field>
-            <span>Dia do mês</span>
-            <select name="dayOfMonth" data-recurring-monthday></select>
-          </label>
-        </div>
-        <p
-          class="auth-feedback hidden"
-          role="alert"
-          aria-live="polite"
-          data-recurring-feedback
-        ></p>
-        <button
-          class="button button-primary button-block shine"
-          type="submit"
-          data-recurring-submit
-        >
-          Criar reserva fixa
-        </button>
-      </form>
-    </div>
-
-    <div class="modal-backdrop" data-recurring-detail-modal aria-hidden="true">
-      <div
-        class="modal-card small-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="recurring-detail-title"
-      >
-        <button
-          class="modal-close"
-          type="button"
-          data-modal-close
-          aria-label="Fechar"
-        >
-          ×
-        </button>
-        <div data-recurring-detail></div>
-        <div class="recurring-detail-actions">
-          <button
-            class="button button-primary button-block shine"
-            type="button"
-            data-edit-recurring
-          >
-            Editar reserva fixa
-          </button>
-          <button
-            class="button button-outline button-block"
-            type="button"
-            data-remove-recurring
-          >
-            Remover reserva fixa
           </button>
         </div>
       </div>
@@ -1153,8 +997,167 @@
         </button>
         <p class="eyebrow dark">Tabela do torneio</p>
         <h2 id="super8-detail-title" data-super8-detail-title>Super 8</h2>
+        <button
+          class="button button-outline"
+          type="button"
+          data-super8-edit-open
+        >
+          Editar torneio
+        </button>
         <div data-super8-detail-content></div>
       </div>
+    </div>
+
+    <div
+      class="modal-backdrop modal-stacked"
+      data-super8-edit-modal
+      aria-hidden="true"
+    >
+      <form
+        class="modal-card court-form-modal"
+        data-super8-edit-form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="super8-edit-title"
+      >
+        <button
+          class="modal-close"
+          type="button"
+          data-modal-close
+          aria-label="Fechar"
+        >
+          ×
+        </button>
+        <p class="eyebrow dark">Editar torneio</p>
+        <h2 id="super8-edit-title">Ajuste os dados.</h2>
+        <p class="profile-data-note" data-super8-edit-locked-note hidden>
+          Os confrontos já foram gerados — só nome e horário de início
+          continuam editáveis.
+        </p>
+        <label class="input-group">
+          <span>Nome do torneio</span>
+          <input
+            type="text"
+            name="name"
+            minlength="3"
+            maxlength="80"
+            required
+          />
+        </label>
+        <div class="input-grid court-form-grid">
+          <label class="input-group">
+            <span>Tamanho</span>
+            <select name="size" data-super8-edit-size>
+              <option value="8">Super 8</option>
+              <option value="12">Super 12</option>
+              <option value="16">Super 16</option>
+            </select>
+          </label>
+          <label class="input-group">
+            <span>Horário de início</span>
+            <select name="startTime" data-super8-edit-start-time>
+              <option value="">Sem horário definido</option>
+            </select>
+          </label>
+        </div>
+        <fieldset class="super8-fieldset" data-super8-edit-categories-field>
+          <legend>Categorias permitidas</legend>
+          <label class="super8-category-all">
+            <input type="checkbox" data-super8-edit-categories-all checked />
+            <span>Todas as categorias</span>
+          </label>
+          <div
+            class="super8-categories-grid hidden"
+            data-super8-edit-categories-grid
+          >
+            <label
+              ><input
+                type="checkbox"
+                name="editLevelCategories"
+                value="Iniciante"
+              /><span>Iniciante</span></label
+            >
+            <label
+              ><input
+                type="checkbox"
+                name="editLevelCategories"
+                value="Iniciante Intermediário"
+              /><span>Iniciante Intermediário</span></label
+            >
+            <label
+              ><input
+                type="checkbox"
+                name="editLevelCategories"
+                value="Intermediário"
+              /><span>Intermediário</span></label
+            >
+            <label
+              ><input
+                type="checkbox"
+                name="editLevelCategories"
+                value="Intermediário Avançado"
+              /><span>Intermediário Avançado</span></label
+            >
+            <label
+              ><input
+                type="checkbox"
+                name="editLevelCategories"
+                value="Avançado"
+              /><span>Avançado</span></label
+            >
+            <label
+              ><input
+                type="checkbox"
+                name="editLevelCategories"
+                value="Avançado Elevado"
+              /><span>Avançado Elevado</span></label
+            >
+            <label
+              ><input
+                type="checkbox"
+                name="editLevelCategories"
+                value="Elite"
+              /><span>Elite</span></label
+            >
+          </div>
+        </fieldset>
+        <div
+          class="super8-section hidden"
+          data-super8-edit-confirm
+          role="alert"
+        >
+          <p class="profile-data-note" data-super8-edit-confirm-message></p>
+          <div class="super8-pairs-actions">
+            <button
+              class="button button-outline"
+              type="button"
+              data-super8-edit-confirm-remove
+            >
+              Remover jogadores incompatíveis
+            </button>
+            <button
+              class="button button-primary"
+              type="button"
+              data-super8-edit-confirm-keep
+            >
+              Manter mudança mesmo assim
+            </button>
+          </div>
+        </div>
+        <p
+          class="auth-feedback hidden"
+          role="alert"
+          aria-live="polite"
+          data-super8-edit-feedback
+        ></p>
+        <button
+          class="button button-primary button-block shine"
+          type="submit"
+          data-super8-edit-save
+        >
+          Salvar alterações
+        </button>
+      </form>
     </div>
 
     <div class="modal-backdrop modal-stacked" data-super8-result-modal aria-hidden="true">

@@ -30,8 +30,6 @@
     scheduleDate: null,
     schedulePeriod: "day",
     schedule: null,
-    selectedRecurringId: null,
-    editingRecurringId: null,
     editingCourtId: null,
     courtPreviewObjectUrl: null,
     clubPreviewObjectUrl: null,
@@ -857,6 +855,7 @@
         event.currentTarget.checked,
       );
     });
+    setupSuper8EditModal();
   }
 
   function readSuper8LevelCategories(form) {
@@ -865,6 +864,138 @@
       (input) => input.value,
     );
     return selected.length ? selected : null;
+  }
+
+  // TASK-90 — edição do torneio já publicado/com inscrições abertas.
+  const SUPER8_LOCKED_STATUSES = ["gerado", "em_andamento", "finalizado"];
+
+  function populateSuper8EditTimeOptions() {
+    const select = $("[data-super8-edit-start-time]");
+    if (!select) return;
+    const options = Array.from({ length: 48 }, (_, index) =>
+      minutesToTime(index * 30),
+    )
+      .map((time) => `<option value="${time}">${time}</option>`)
+      .join("");
+    select.innerHTML = `<option value="">Sem horário definido</option>${options}`;
+  }
+
+  function readSuper8EditLevelCategories() {
+    if ($("[data-super8-edit-categories-all]").checked) return null;
+    const selected = $$(
+      '[data-super8-edit-categories-grid] input[name="editLevelCategories"]:checked',
+    ).map((input) => input.value);
+    return selected.length ? selected : null;
+  }
+
+  function setSuper8EditLevelCategories(levelCategories) {
+    const hasRestriction = Boolean(levelCategories?.length);
+    $("[data-super8-edit-categories-all]").checked = !hasRestriction;
+    $("[data-super8-edit-categories-grid]").classList.toggle(
+      "hidden",
+      !hasRestriction,
+    );
+    $$(
+      '[data-super8-edit-categories-grid] input[name="editLevelCategories"]',
+    ).forEach((input) => {
+      input.checked =
+        hasRestriction && levelCategories.includes(input.value);
+    });
+  }
+
+  function openSuper8EditModal() {
+    const tournament = super8State.current;
+    if (!tournament) return;
+    const form = $("[data-super8-edit-form]");
+    form.reset();
+    form.elements.name.value = tournament.name;
+    $("[data-super8-edit-start-time]").value = tournament.startTime || "";
+    setSuper8EditLevelCategories(tournament.levelCategories);
+    showFormFeedback("[data-super8-edit-feedback]", "");
+    $("[data-super8-edit-confirm]").classList.add("hidden");
+
+    const locked = SUPER8_LOCKED_STATUSES.includes(tournament.status);
+    $("[data-super8-edit-locked-note]").hidden = !locked;
+    $("[data-super8-edit-size]").value = String(tournament.size);
+    $("[data-super8-edit-size]").disabled = locked;
+    $("[data-super8-edit-categories-field]").classList.toggle(
+      "hidden",
+      locked,
+    );
+    openModal($("[data-super8-edit-modal]"));
+  }
+
+  async function submitSuper8Edit(onIneligiblePlayers) {
+    const tournament = super8State.current;
+    if (!tournament) return;
+    const form = $("[data-super8-edit-form]");
+    const button = $("[data-super8-edit-save]");
+    const locked = SUPER8_LOCKED_STATUSES.includes(tournament.status);
+    const body = {
+      name: form.elements.name.value.trim(),
+      startTime: $("[data-super8-edit-start-time]").value || null,
+    };
+    if (!locked) {
+      body.size = Number($("[data-super8-edit-size]").value);
+      body.levelCategories = readSuper8EditLevelCategories();
+    }
+    if (onIneligiblePlayers) body.onIneligiblePlayers = onIneligiblePlayers;
+    button.disabled = true;
+    button.textContent = "Salvando…";
+    showFormFeedback("[data-super8-edit-feedback]", "");
+    try {
+      const { tournament: updated } = await apiRequest(
+        `/api/v1/club/super8/${encodeURIComponent(tournament.id)}`,
+        { method: "PATCH", body },
+      );
+      $("[data-super8-edit-confirm]").classList.add("hidden");
+      closeModal($("[data-super8-edit-modal]"));
+      const index = super8State.tournaments.findIndex(
+        (item) => item.id === updated.id,
+      );
+      if (index >= 0) super8State.tournaments[index] = updated;
+      openSuper8Detail(updated.id, updated);
+      loadSuper8();
+      showToast("Torneio atualizado.");
+    } catch (error) {
+      if (error.code === "super8_category_change_needs_confirmation") {
+        const names = error.details?.affectedPlayers
+          ?.map((player) => player.name)
+          .join(", ");
+        $("[data-super8-edit-confirm-message]").textContent =
+          `${error.message}${names ? ` (${names})` : ""}`;
+        $("[data-super8-edit-confirm]").classList.remove("hidden");
+      } else {
+        showFormFeedback("[data-super8-edit-feedback]", error.message);
+      }
+    } finally {
+      button.disabled = false;
+      button.textContent = "Salvar alterações";
+    }
+  }
+
+  function setupSuper8EditModal() {
+    populateSuper8EditTimeOptions();
+    $("[data-super8-edit-open]")?.addEventListener("click", openSuper8EditModal);
+    $("[data-super8-edit-categories-all]")?.addEventListener(
+      "change",
+      (event) => {
+        $("[data-super8-edit-categories-grid]").classList.toggle(
+          "hidden",
+          event.currentTarget.checked,
+        );
+      },
+    );
+    $("[data-super8-edit-form]")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitSuper8Edit();
+    });
+    $("[data-super8-edit-confirm-remove]")?.addEventListener("click", () =>
+      submitSuper8Edit("remove"),
+    );
+    $("[data-super8-edit-confirm-keep]")?.addEventListener("click", () =>
+      submitSuper8Edit("keep"),
+    );
   }
 
 
@@ -986,7 +1117,6 @@
     renderCourts();
     renderArena();
     populateFinanceCourtFilter();
-    populateRecurringCourts();
   }
 
   function populateHalfHourSelect(select, selectedValue) {
@@ -1304,7 +1434,8 @@
     const initials = booking.player?.initials || "—";
     const name = booking.player?.displayName || "Jogador";
     const statusLabels = { confirmed: "Confirmado", cancelled: "Cancelado" };
-    return `<tr><td><span class="client-cell"><span>${escapeHTML(initials)}</span><strong>${escapeHTML(name)}</strong></span></td><td>${escapeHTML(booking.courtName)}</td><td>${escapeHTML(date)}</td><td>${booking.visibility === "open" ? "Aberto" : "Privado"}</td><td><span class="status-badge${booking.status !== "confirmed" ? " done" : ""}">${escapeHTML(statusLabels[booking.status] || booking.status)}</span></td></tr>`;
+    const spots = booking.openSpots > 0 ? `${booking.openSpots} vagas` : "Completo";
+    return `<tr><td><span class="client-cell"><span>${escapeHTML(initials)}</span><strong>${escapeHTML(name)}</strong></span></td><td>${escapeHTML(booking.courtName)}</td><td>${escapeHTML(date)}</td><td>${escapeHTML(spots)}</td><td><span class="status-badge${booking.status !== "confirmed" ? " done" : ""}">${escapeHTML(statusLabels[booking.status] || booking.status)}</span></td></tr>`;
   }
 
   function renderBookings() {
@@ -1497,41 +1628,24 @@
     });
   }
 
-  function recurringIdFromSlot(slot) {
-    if (typeof slot.recurringBooking === "string") return slot.recurringBooking;
-    return slot.recurringBooking?.id || slot.recurringBookingId || "";
-  }
-
   function scheduleCell(slot) {
     if (!slot) {
       return '<span class="schedule-cell blocked" aria-label="Fora da grade"><span>—</span></span>';
     }
-    const status = ["available", "booked", "recurring", "blocked"].includes(
-      slot.status,
-    )
+    const status = ["available", "booked", "blocked"].includes(slot.status)
       ? slot.status
       : "blocked";
-    const recurring = slot.recurringBooking;
-    const clientName =
-      typeof recurring === "object" ? recurring.clientName : "";
     const labels = {
       available: "Livre",
       booked: "Jogo criado",
-      recurring: clientName ? `Fixo · ${clientName}` : "Fixo",
       blocked: "Bloqueado",
     };
     const compatibilityClass = {
       available: "",
       booked: "booked",
-      recurring: "fixed open-match",
       blocked: "blocked booked",
     }[status];
-    const recurringId = recurringIdFromSlot(slot);
-    const interaction =
-      status === "recurring" && recurringId
-        ? ` data-recurring-id="${escapeHTML(recurringId)}" role="button" tabindex="0" aria-label="Ver compromisso fixo de ${escapeHTML(clientName || "cliente")}"`
-        : "";
-    return `<span class="schedule-cell ${compatibilityClass}" data-schedule-status="${status}"${interaction}><span>${escapeHTML(labels[status])}</span></span>`;
+    return `<span class="schedule-cell ${compatibilityClass}" data-schedule-status="${status}"><span>${escapeHTML(labels[status])}</span></span>`;
   }
 
   function renderWeeklySchedule(data) {
@@ -1567,7 +1681,7 @@
           total[slot.status] = (total[slot.status] || 0) + 1;
           return total;
         }, {});
-        html += `<button class="week-summary-cell" type="button" data-week-date="${escapeHTML(day.date)}" aria-label="Abrir grade de ${escapeHTML(dayLabel)}"><strong>${counts.available || 0} livres</strong><span>${counts.booked || 0} jogos · ${counts.recurring || 0} fixos</span></button>`;
+        html += `<button class="week-summary-cell" type="button" data-week-date="${escapeHTML(day.date)}" aria-label="Abrir grade de ${escapeHTML(dayLabel)}"><strong>${counts.available || 0} livres</strong><span>${counts.booked || 0} jogos</span></button>`;
       });
     });
     html += "</div>";
@@ -1604,7 +1718,7 @@
       return;
     }
     const columns = `100px repeat(${courts.length}, minmax(140px, 1fr))`;
-    let html = `<div class="schedule-legend" aria-label="Legenda da grade"><span data-schedule-status="available">Livre</span><span data-schedule-status="booked">Jogo criado</span><span data-schedule-status="recurring">Fixo</span><span data-schedule-status="blocked">Bloqueado</span></div><div class="schedule-grid"><span class="head">Horário</span>${courts.map((court) => `<span class="head court-name">${escapeHTML(court.courtName)}</span>`).join("")}`;
+    let html = `<div class="schedule-legend" aria-label="Legenda da grade"><span data-schedule-status="available">Livre</span><span data-schedule-status="booked">Jogo criado</span><span data-schedule-status="blocked">Bloqueado</span></div><div class="schedule-grid"><span class="head">Horário</span>${courts.map((court) => `<span class="head court-name">${escapeHTML(court.courtName)}</span>`).join("")}`;
     times.forEach((time) => {
       html += `<span class="head schedule-time">${escapeHTML(time)}</span>`;
       courts.forEach((court) => {
@@ -1701,29 +1815,11 @@
           }) + "%",
       },
     );
-    charts.renderDonut(
-      $("[data-chart-payments]"),
-      data.byVisibility.map((item) => ({
-        label: item.label,
-        value: item.games,
-      })),
-      {
-        label: "Jogos por visibilidade",
-        formatValue: (value) => String(value),
-      },
-    );
   }
 
   function renderFinance() {
     const data = state.finance;
     $("[data-finance-kpi-games]").textContent = String(data.summary.totalGames);
-    $("[data-finance-kpi-open]").textContent = String(
-      data.byVisibility.find((item) => item.visibility === "open")?.games ?? 0,
-    );
-    $("[data-finance-kpi-private]").textContent = String(
-      data.byVisibility.find((item) => item.visibility === "private")
-        ?.games ?? 0,
-    );
     const averageOccupancy = data.occupancyByCourt.length
       ? data.occupancyByCourt.reduce(
           (total, court) => total + court.occupancyRate,
@@ -1766,7 +1862,8 @@
       minute: "2-digit",
     });
     const statusLabels = { confirmed: "Confirmado", cancelled: "Cancelado" };
-    return `<tr><td>${escapeHTML(date)}</td><td>${escapeHTML(booking.courtName)}</td><td>${escapeHTML(booking.player?.displayName || "Jogador")}</td><td>${booking.visibility === "open" ? "Aberto" : "Privado"}</td><td>${escapeHTML(statusLabels[booking.status] || booking.status)}</td></tr>`;
+    const spots = booking.openSpots > 0 ? `${booking.openSpots} vagas` : "Completo";
+    return `<tr><td>${escapeHTML(date)}</td><td>${escapeHTML(booking.courtName)}</td><td>${escapeHTML(booking.player?.displayName || "Jogador")}</td><td>${escapeHTML(spots)}</td><td>${escapeHTML(statusLabels[booking.status] || booking.status)}</td></tr>`;
   }
 
   async function loadFinance() {
@@ -1808,292 +1905,6 @@
       ) {
         loadFinance();
       }
-    });
-  }
-
-  function populateRecurringCourts() {
-    const select = $("[data-recurring-court]");
-    if (!select) return;
-    const current = select.value;
-    const activeCourts = state.courts.filter((court) => court.active);
-    select.innerHTML = activeCourts.length
-      ? activeCourts
-          .map(
-            (court) =>
-              `<option value="${escapeHTML(court.id)}">${escapeHTML(court.name)}</option>`,
-          )
-          .join("")
-      : '<option value="">Nenhuma quadra ativa</option>';
-    if (activeCourts.some((court) => court.id === current))
-      select.value = current;
-    populateRecurringTimes();
-  }
-
-  function populateRecurringTimes() {
-    const courtSelect = $("[data-recurring-court]");
-    const timeSelect = $("[data-recurring-time]");
-    if (!courtSelect || !timeSelect) return;
-    const court = state.courts.find(
-      (item) => item.id === courtSelect.value && item.active,
-    );
-    if (!court) {
-      timeSelect.innerHTML = '<option value="">Sem horários</option>';
-      return;
-    }
-    const current = timeSelect.value;
-    const start = timeToMinutes(courtOpenTime(court));
-    const close = timeToMinutes(courtCloseTime(court));
-    const duration = courtSlotDuration(court);
-    const times = [];
-    for (let minute = start; minute + duration <= close; minute += duration) {
-      times.push(minutesToTime(minute));
-    }
-    timeSelect.innerHTML = times.length
-      ? times
-          .map(
-            (time) =>
-              `<option value="${time}"${time === current ? " selected" : ""}>${time}</option>`,
-          )
-          .join("")
-      : '<option value="">Sem horários</option>';
-  }
-
-  function syncRecurringFrequency() {
-    const weekly = $("[data-recurring-frequency]").value === "weekly";
-    const weeklyField = $("[data-weekly-day-field]");
-    const monthlyField = $("[data-monthly-day-field]");
-    const weekday = $("[data-recurring-weekday]");
-    const monthday = $("[data-recurring-monthday]");
-    weeklyField.classList.toggle("hidden", !weekly);
-    monthlyField.classList.toggle("hidden", weekly);
-    weekday.disabled = !weekly;
-    weekday.required = weekly;
-    monthday.disabled = weekly;
-    monthday.required = !weekly;
-  }
-
-  function openRecurringModal(booking = null) {
-    if (!state.courts.some((court) => court.active)) {
-      showToast(
-        "Ative ou cadastre uma quadra antes de criar uma reserva fixa.",
-      );
-      return;
-    }
-    const form = $("[data-recurring-form]");
-    state.editingRecurringId = booking?.id || null;
-    form.reset();
-    populateRecurringCourts();
-    const title = $("[data-recurring-modal-title]");
-    const description = $("[data-recurring-modal-description]");
-    const submit = $("[data-recurring-submit]");
-    if (booking) {
-      form.elements.clientName.value = booking.clientName || "";
-      form.elements.courtId.value = booking.courtId || "";
-      populateRecurringTimes();
-      form.elements.startTime.value = booking.startTime || "";
-      form.elements.frequency.value = booking.recurrence?.frequency || "weekly";
-      if (booking.recurrence?.frequency === "monthly") {
-        form.elements.dayOfMonth.value = String(
-          booking.recurrence.dayOfMonth || 1,
-        );
-      } else {
-        form.elements.dayOfWeek.value = String(
-          booking.recurrence?.dayOfWeek ?? 1,
-        );
-      }
-      title.textContent = "Editar reserva fixa.";
-      description.textContent =
-        "Atualize cliente, quadra, horário ou recorrência. A grade será recalculada ao salvar.";
-      submit.textContent = "Salvar alterações";
-    } else {
-      const referenceDate = new Date(
-        `${state.scheduleDate || localDateKey()}T12:00:00`,
-      );
-      $("[data-recurring-weekday]").value = String(referenceDate.getDay());
-      $("[data-recurring-monthday]").value = String(referenceDate.getDate());
-      title.textContent = "Nova reserva fixa.";
-      description.textContent =
-        "O horário ficará indisponível para novas reservas até esta recorrência ser removida.";
-      submit.textContent = "Criar reserva fixa";
-    }
-    syncRecurringFrequency();
-    showFormFeedback("[data-recurring-feedback]", "");
-    openModal($("[data-recurring-modal]"));
-  }
-
-  function recurrenceLabel(recurringBooking) {
-    const recurrence = recurringBooking?.recurrence || {};
-    const weekdays = [
-      "domingo",
-      "segunda-feira",
-      "terça-feira",
-      "quarta-feira",
-      "quinta-feira",
-      "sexta-feira",
-      "sábado",
-    ];
-    if (recurrence.frequency === "weekly") {
-      return `Toda ${weekdays[Number(recurrence.dayOfWeek)] || "semana"}`;
-    }
-    if (recurrence.frequency === "monthly") {
-      return `Todo dia ${Number(recurrence.dayOfMonth)}`;
-    }
-    return "Recorrência fixa";
-  }
-
-  function findRecurringBooking(recurringId) {
-    const fromList = (state.schedule?.recurringBookings || []).find(
-      (item) => item.id === recurringId,
-    );
-    if (fromList) return fromList;
-    for (const court of state.schedule?.courts || []) {
-      for (const slot of court.slots || []) {
-        if (recurringIdFromSlot(slot) !== recurringId) continue;
-        if (typeof slot.recurringBooking === "object") {
-          return {
-            ...slot.recurringBooking,
-            courtId: slot.recurringBooking.courtId || court.courtId,
-            courtName: slot.recurringBooking.courtName || court.courtName,
-            startTime: slot.recurringBooking.startTime || slotTime(slot),
-          };
-        }
-      }
-    }
-    return null;
-  }
-
-  function openRecurringDetail(recurringId) {
-    const booking = findRecurringBooking(recurringId);
-    if (!booking) {
-      showToast("Não foi possível localizar esta reserva fixa.");
-      return;
-    }
-    const court = state.courts.find((item) => item.id === booking.courtId);
-    state.selectedRecurringId = recurringId;
-    $("[data-recurring-detail]").innerHTML =
-      `<p class="eyebrow dark">Reserva fixa</p><h2 id="recurring-detail-title">${escapeHTML(booking.clientName)}</h2><div class="match-detail-summary"><div><small>Quadra</small><strong>${escapeHTML(booking.courtName || court?.name || "Quadra")}</strong></div><div><small>Horário</small><strong>${escapeHTML(booking.startTime)}</strong></div><div><small>Recorrência</small><strong>${escapeHTML(recurrenceLabel(booking))}</strong></div></div><p class="modal-description">Edite os dados ou remova a recorrência para liberar os próximos horários.</p>`;
-    openModal($("[data-recurring-detail-modal]"));
-  }
-
-  function editSelectedRecurringBooking() {
-    const booking = findRecurringBooking(state.selectedRecurringId);
-    if (!booking) {
-      showToast("Não foi possível localizar esta reserva fixa.");
-      return;
-    }
-    closeModal($("[data-recurring-detail-modal]"));
-    openRecurringModal(booking);
-  }
-
-  async function removeRecurringBooking() {
-    const recurringId = state.selectedRecurringId;
-    if (!recurringId) return;
-    if (!window.confirm("Remover esta reserva fixa da grade?")) return;
-    const button = $("[data-remove-recurring]");
-    button.disabled = true;
-    button.textContent = "Removendo...";
-    try {
-      await apiRequest(
-        `/api/v1/club/recurring-bookings/${encodeURIComponent(recurringId)}`,
-        { method: "DELETE" },
-      );
-      closeModal($("[data-recurring-detail-modal]"));
-      state.selectedRecurringId = null;
-      await loadSchedule();
-      showToast("Reserva fixa removida. O horário voltou a ficar disponível.");
-    } catch (error) {
-      showToast(error.message);
-    } finally {
-      button.disabled = false;
-      button.textContent = "Remover reserva fixa";
-    }
-  }
-
-  function setupRecurringBookings() {
-    $("[data-recurring-monthday]").innerHTML = Array.from(
-      { length: 31 },
-      (_, index) => `<option value="${index + 1}">${index + 1}</option>`,
-    ).join("");
-    $("[data-recurring-court]")?.addEventListener(
-      "change",
-      populateRecurringTimes,
-    );
-    $("[data-recurring-frequency]")?.addEventListener(
-      "change",
-      syncRecurringFrequency,
-    );
-    $("[data-add-recurring]")?.addEventListener("click", () =>
-      openRecurringModal(),
-    );
-    $("[data-new-booking]")?.addEventListener("click", () =>
-      openRecurringModal(),
-    );
-    $("[data-recurring-form]")?.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      if (!form.checkValidity()) return form.reportValidity();
-      const values = Object.fromEntries(new FormData(form).entries());
-      const recurrence =
-        values.frequency === "weekly"
-          ? {
-              frequency: "weekly",
-              dayOfWeek: Number(values.dayOfWeek),
-            }
-          : {
-              frequency: "monthly",
-              dayOfMonth: Number(values.dayOfMonth),
-            };
-      const button = $("[data-recurring-submit]");
-      const editingId = state.editingRecurringId;
-      button.disabled = true;
-      showFormFeedback("[data-recurring-feedback]", "");
-      try {
-        await apiRequest(
-          editingId
-            ? `/api/v1/club/recurring-bookings/${encodeURIComponent(editingId)}`
-            : `/api/v1/club/courts/${encodeURIComponent(values.courtId)}/recurring-bookings`,
-          {
-            method: editingId ? "PATCH" : "POST",
-            body: {
-              ...(editingId ? { courtId: values.courtId } : {}),
-              clientName: values.clientName,
-              startTime: values.startTime,
-              recurrence,
-            },
-          },
-        );
-        closeModal($("[data-recurring-modal]"));
-        state.editingRecurringId = null;
-        state.selectedRecurringId = null;
-        await loadSchedule();
-        showToast(
-          editingId
-            ? "Reserva fixa atualizada e grade recalculada."
-            : "Reserva fixa criada e horário bloqueado na grade.",
-        );
-      } catch (error) {
-        showFormFeedback("[data-recurring-feedback]", error.message);
-      } finally {
-        button.disabled = false;
-      }
-    });
-    $("[data-remove-recurring]")?.addEventListener(
-      "click",
-      removeRecurringBooking,
-    );
-    $("[data-edit-recurring]")?.addEventListener(
-      "click",
-      editSelectedRecurringBooking,
-    );
-    $("[data-owner-schedule]")?.addEventListener("click", (event) => {
-      const cell = event.target.closest("[data-recurring-id]");
-      if (cell) openRecurringDetail(cell.dataset.recurringId);
-    });
-    $("[data-owner-schedule]")?.addEventListener("keydown", (event) => {
-      const cell = event.target.closest("[data-recurring-id]");
-      if (!cell || !["Enter", " "].includes(event.key)) return;
-      event.preventDefault();
-      openRecurringDetail(cell.dataset.recurringId);
     });
   }
 
@@ -2170,7 +1981,6 @@
     setupCourtModal();
     setupClubSettings();
     setupFinance();
-    setupRecurringBookings();
     setupSecondaryActions();
     if (!(await refreshDashboard())) return;
     if (state.courts.length === 0) openManagement();

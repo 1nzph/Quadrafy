@@ -4,8 +4,35 @@ import { LEVEL_CATEGORY_NAMES } from "./level-engine.js";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const COURT_TYPES = new Set(["covered", "outdoor"]);
-const VISIBILITIES = new Set(["private", "open"]);
 const HALF_HOUR_TIME_PATTERN = /^([01]\d|2[0-3]):(?:00|30)$/;
+
+// TASK-77/TASK-92 — categorias de nível permitidas: null/vazio = todas (sem
+// restrição); senão, uma lista de categorias da tabela oficial de 7.
+// Reaproveitado tanto pelo Super 8 quanto pela criação de jogo aberto.
+function parseLevelCategories(rawCategories, field = "levelCategories") {
+  if (rawCategories === undefined || rawCategories === null) return null;
+  if (!Array.isArray(rawCategories)) {
+    throw new ApiError(
+      422,
+      "validation_failed",
+      "Categorias permitidas inválidas.",
+      { field },
+    );
+  }
+  const unique = [...new Set(rawCategories.map((value) => String(value)))];
+  if (unique.some((category) => !LEVEL_CATEGORY_NAMES.includes(category))) {
+    throw new ApiError(
+      422,
+      "validation_failed",
+      "Uma das categorias selecionadas não é válida.",
+      { field },
+    );
+  }
+  // cobre todas as 7 → equivalente a "sem restrição"
+  return unique.length && unique.length < LEVEL_CATEGORY_NAMES.length
+    ? unique
+    : null;
+}
 const MAX_BOOKING_HORIZON_MS = 90 * 24 * 60 * 60 * 1_000;
 // TASK-26 — questionário determinístico: 6 perguntas, cada resposta vale
 // de 1 a 4 pontos (pontuação total 6–24).
@@ -198,35 +225,7 @@ export function validateSuper8(body) {
       { field: "players" },
     );
   }
-  // TASK-77 — categorias de nível permitidas: null/vazio = todas (sem
-  // restrição); senão, uma lista de categorias da tabela oficial de 7.
-  const rawCategories = body?.levelCategories;
-  let levelCategories = null;
-  if (rawCategories !== undefined && rawCategories !== null) {
-    if (!Array.isArray(rawCategories)) {
-      throw new ApiError(
-        422,
-        "validation_failed",
-        "Categorias permitidas inválidas.",
-        { field: "levelCategories" },
-      );
-    }
-    const unique = [...new Set(rawCategories.map((value) => String(value)))];
-    if (
-      unique.some((category) => !LEVEL_CATEGORY_NAMES.includes(category))
-    ) {
-      throw new ApiError(
-        422,
-        "validation_failed",
-        "Uma das categorias selecionadas não é válida.",
-        { field: "levelCategories" },
-      );
-    }
-    // cobre todas as 7 → equivalente a "sem restrição"
-    if (unique.length && unique.length < LEVEL_CATEGORY_NAMES.length) {
-      levelCategories = unique;
-    }
-  }
+  const levelCategories = parseLevelCategories(body?.levelCategories);
   // TASKS-14 / TASK-59 — horário de início do EVENTO (convocação), em
   // intervalos de 30 minutos. Não gera horário por jogo (TASK-43 mantida).
   let startTime = null;
@@ -251,6 +250,48 @@ export function validateSuper8(body) {
       ? validateSuper8Pairs(body?.pairs, size)
       : null;
   return { name, size, mode, players, pairs, startTime, levelCategories };
+}
+
+// TASK-90 — edição parcial do Super 8 (nome, horário, categorias e tamanho),
+// mesmo depois de inscrições abertas ou jogadores já inscritos. Cada campo só
+// é validado/retornado quando enviado no corpo (atualização parcial).
+export function validateSuper8Update(body) {
+  const update = {};
+  if (body?.name !== undefined) {
+    update.name = text(body.name, "name", { min: 3, max: 80 });
+  }
+  if (body?.size !== undefined) {
+    const size = Number(body.size);
+    if (![8, 12, 16].includes(size)) {
+      throw new ApiError(
+        422,
+        "validation_failed",
+        "Escolha entre Super 8, Super 12 ou Super 16.",
+        { field: "size" },
+      );
+    }
+    update.size = size;
+  }
+  if (body?.levelCategories !== undefined) {
+    update.levelCategories = parseLevelCategories(body.levelCategories);
+  }
+  if (body?.startTime !== undefined) {
+    if (body.startTime === null || body.startTime === "") {
+      update.startTime = null;
+    } else {
+      const raw = String(body.startTime).trim();
+      if (!/^([01]\d|2[0-3]):(00|30)$/.test(raw)) {
+        throw new ApiError(
+          422,
+          "validation_failed",
+          "O horário de início deve ser em intervalos de 30 minutos (ex.: 19:00 ou 19:30).",
+          { field: "startTime" },
+        );
+      }
+      update.startTime = raw;
+    }
+  }
+  return update;
 }
 
 // TASK-74 — validação das duplas fixas, reutilizada tanto na criação (quando
@@ -420,19 +461,6 @@ function questionScore(value, field) {
   return numeric;
 }
 
-function level(value, field) {
-  const normalized = number(value, field, { min: 0.5, max: 7 });
-  if (Math.abs(normalized * 100 - Math.round(normalized * 100)) > 1e-9) {
-    throw new ApiError(
-      422,
-      "validation_failed",
-      "O limite de nível deve usar no máximo duas casas decimais.",
-      { field },
-    );
-  }
-  return Math.round(normalized * 100) / 100;
-}
-
 export function validateLogin(body) {
   return {
     email: email(body.email),
@@ -582,16 +610,6 @@ export function validateCourt(body) {
 }
 
 export function validateBooking(body) {
-  const visibility = String(body.visibility ?? "private").toLowerCase();
-  if (!VISIBILITIES.has(visibility)) {
-    throw new ApiError(
-      422,
-      "validation_failed",
-      "Selecione uma visibilidade válida.",
-      { field: "visibility" },
-    );
-  }
-
   const startAt = new Date(body.startAt);
   if (
     Number.isNaN(startAt.getTime()) ||
@@ -613,22 +631,7 @@ export function validateBooking(body) {
     );
   }
 
-  let levelMin = null;
-  let levelMax = null;
-  let levelRange = null;
-  if (visibility === "open") {
-    levelMin = level(body.levelMin, "levelMin");
-    levelMax = level(body.levelMax, "levelMax");
-    if (levelMin > levelMax) {
-      throw new ApiError(
-        422,
-        "validation_failed",
-        "O nível mínimo não pode superar o máximo.",
-        { field: "levelMin" },
-      );
-    }
-    levelRange = `${levelMin.toFixed(2)} – ${levelMax.toFixed(2)}`;
-  }
+  const levelCategories = parseLevelCategories(body.levelCategories);
   // TASK-49 — categoria de gênero da partida aberta.
   let genderCategory = "all";
   if (body.genderCategory !== undefined && body.genderCategory !== null) {
@@ -649,11 +652,8 @@ export function validateBooking(body) {
     courtId: identifier(body.courtId, "courtId"),
     startAt: startAt.toISOString(),
     genderCategory,
-    visibility,
-    levelRange,
-    levelMin,
-    levelMax,
-    maxPlayers: visibility === "open" ? 4 : 1,
+    levelCategories,
+    maxPlayers: 4,
     // TASK-79 — o jogador já confirmou (fora do app) que reservou esse
     // horário mesmo vendo o aviso de conflito com outro jogo criado.
     allowConflict: Boolean(body.allowConflict),
@@ -727,97 +727,9 @@ export function validateMatchMessage(body) {
 
 export function validateBookingUpdate(body) {
   if (body.status === "cancelled") return { status: "cancelled" };
-  const visibility = String(body.visibility ?? "").toLowerCase();
-  if (!VISIBILITIES.has(visibility)) {
-    throw new ApiError(
-      422,
-      "validation_failed",
-      "Selecione uma visibilidade válida.",
-      { field: "visibility" },
-    );
-  }
-  if (visibility === "private") {
-    return {
-      visibility,
-      levelMin: null,
-      levelMax: null,
-      levelRange: null,
-      maxPlayers: 1,
-    };
-  }
-  const levelMin = level(body.levelMin, "levelMin");
-  const levelMax = level(body.levelMax, "levelMax");
-  if (levelMin > levelMax) {
-    throw new ApiError(
-      422,
-      "validation_failed",
-      "O nível mínimo não pode superar o máximo.",
-      { field: "levelMin" },
-    );
-  }
   return {
-    visibility,
-    levelMin,
-    levelMax,
-    levelRange: `${levelMin.toFixed(2)} – ${levelMax.toFixed(2)}`,
+    levelCategories: parseLevelCategories(body.levelCategories),
     maxPlayers: 4,
   };
 }
 
-export function validateRecurringBooking(body) {
-  const startTime = String(body.startTime ?? "");
-  if (!HALF_HOUR_TIME_PATTERN.test(startTime)) {
-    throw new ApiError(
-      422,
-      "validation_failed",
-      "Informe um horário válido em intervalos de 30 minutos.",
-      { field: "startTime" },
-    );
-  }
-  const recurrence = body.recurrence ?? {};
-  if (recurrence.frequency === "weekly") {
-    const dayOfWeek = Number(recurrence.dayOfWeek);
-    if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) {
-      throw new ApiError(
-        422,
-        "validation_failed",
-        "Informe um dia da semana válido.",
-        { field: "recurrence.dayOfWeek" },
-      );
-    }
-    return {
-      clientName: text(body.clientName, "clientName", { max: 100 }),
-      startTime,
-      recurrence: { frequency: "weekly", dayOfWeek },
-    };
-  }
-  if (recurrence.frequency === "monthly") {
-    const dayOfMonth = Number(recurrence.dayOfMonth);
-    if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) {
-      throw new ApiError(
-        422,
-        "validation_failed",
-        "Informe um dia do mês válido.",
-        { field: "recurrence.dayOfMonth" },
-      );
-    }
-    return {
-      clientName: text(body.clientName, "clientName", { max: 100 }),
-      startTime,
-      recurrence: { frequency: "monthly", dayOfMonth },
-    };
-  }
-  throw new ApiError(
-    422,
-    "validation_failed",
-    "Informe uma recorrência válida.",
-    { field: "recurrence.frequency" },
-  );
-}
-
-export function validateRecurringBookingUpdate(body) {
-  return {
-    courtId: text(body.courtId, "courtId", { max: 200 }),
-    ...validateRecurringBooking(body),
-  };
-}

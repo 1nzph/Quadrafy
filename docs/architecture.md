@@ -44,8 +44,7 @@ backend/data/*.json + backend/data/uploads/
 - `UserStore`: identidade, credenciais, papel, perfil e nivelamento.
 - `ClubStore`: arena, capa, contato, endereço e status público.
 - `CourtStore`: quadras, fotos, preço, funcionamento, edição e exclusão.
-- `BookingStore`: reservas, pagamentos, cancelamentos, times e posições.
-- `RecurringBookingStore`: reservas fixas com tombstone de exclusão.
+- `BookingStore`: jogos, cancelamentos, times e posições.
 - `MatchMessageStore`: chat persistido e paginado por partida.
 - `AuditLogStore`: trilha somente de acréscimo.
 - `finance-analytics`: séries diárias, ocupação, pagamentos e comparação.
@@ -58,7 +57,6 @@ backend/data/*.json + backend/data/uploads/
 - `Court`: tipo, preço, horários, duração e foto.
 - `Booking`: horário, estado, pagamento e visibilidade.
 - `OpenMatch`: a mesma reserva pública, com dois times de duas posições.
-- `RecurringBooking`: bloqueio semanal ou mensal da grade.
 - `MatchMessage`: mensagem vinculada a participante e partida.
 
 Uma partida aberta não duplica a reserva. `teams`, `teamIds` e

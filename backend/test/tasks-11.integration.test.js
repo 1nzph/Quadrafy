@@ -149,10 +149,7 @@ async function createOpenMatch(api, creator, { club, court }, options = {}) {
       courtId: court.id,
       startAt: options.startAt,
       paymentMethod: "pix",
-      visibility: "open",
-      levelMin: 0.5,
-      levelMax: 7,
-      levelRange: "0.50 - 7.00",
+      levelCategories: null,
       availableSpots: 3,
       ...(options.genderCategory
         ? { genderCategory: options.genderCategory }

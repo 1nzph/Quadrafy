@@ -171,14 +171,14 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
     post:
-      summary: Cria um jogo privado ou um jogo aberto
+      summary: Cria um jogo aberto
       description: >-
         O Quadrafy não reserva a quadra nem processa pagamento — o jogador já
         reservou o horário por fora e só registra o jogo aqui. Aceita horários
         até 90 dias no futuro. Cada jogador pode manter no máximo oito jogos
         futuros confirmados como criador e fazer 20 tentativas de criação por
-        hora. Jogos abertos exigem teste e faixa de nível elegível. Se já
-        existir outro jogo criado na mesma quadra/horário, a API responde
+        hora. Todo jogo é aberto e exige teste e faixa de nível elegível. Se
+        já existir outro jogo criado na mesma quadra/horário, a API responde
         409 booking_conflict como aviso (não bloqueio); reenviar com
         allowConflict:true para confirmar mesmo assim.
       security: [{ sessionCookie: [] }]
@@ -217,14 +217,12 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
     patch:
-      summary: Altera a visibilidade ou cancela um jogo
+      summary: Altera a faixa de nível ou cancela um jogo
       description: >-
-        Somente o criador pode alterar. Um jogo aberto não pode voltar a privado
-        depois que outro jogador entrou. Cancelar é uma ação simples, sem prazo
+        Somente o criador pode alterar. Cancelar é uma ação simples, sem prazo
         ou lógica de reembolso (o Quadrafy não processa pagamento da quadra).
       security: [{ sessionCookie: [] }]
       x-error-codes:
-        - booking_has_participants
         - booking_unavailable
         - level_assessment_required
         - level_not_eligible
@@ -313,80 +311,6 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "422": { $ref: "#/components/responses/ValidationError" }
-  /club/courts/{courtId}/recurring-bookings:
-    post:
-      summary: Cria uma reserva fixa semanal ou mensal
-      description: >-
-        O horário precisa ser um slot válido de uma quadra ativa pertencente ao clube.
-        A criação é serializada com reservas avulsas, rejeita ocorrências ocupadas por
-        reservas avulsas confirmadas e recorrências que possam ocupar o mesmo slot,
-        inclusive entre frequências semanal e mensal, e permite até 120 tentativas
-        por hora por gestor.
-      security: [{ sessionCookie: [] }]
-      x-error-codes:
-        - recurring_booking_conflict
-        - invalid_slot
-        - rate_limited
-      parameters:
-        - $ref: "#/components/parameters/CourtId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/RecurringBookingInput" }
-      responses:
-        "201": { $ref: "#/components/responses/RecurringBookingSuccess" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/Conflict" }
-        "422": { $ref: "#/components/responses/ValidationError" }
-        "429": { $ref: "#/components/responses/RateLimited" }
-  /club/recurring-bookings/{recurringBookingId}:
-    patch:
-      summary: Substitui os dados de uma reserva fixa
-      description: >-
-        Exige courtId, clientName, startTime e recurrence. Permite mover a reserva
-        para outra quadra ativa do mesmo clube e valida novamente o slot, reservas
-        avulsas confirmadas e recorrências conflitantes. Preserva id e createdAt,
-        atualiza updatedAt e registra os estados anterior e novo na auditoria.
-      security: [{ sessionCookie: [] }]
-      x-error-codes:
-        - recurring_booking_conflict
-        - invalid_slot
-        - rate_limited
-      parameters:
-        - $ref: "#/components/parameters/RecurringBookingId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/RecurringBookingUpdate" }
-      responses:
-        "200": { $ref: "#/components/responses/RecurringBookingSuccess" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/Conflict" }
-        "422": { $ref: "#/components/responses/ValidationError" }
-        "429": { $ref: "#/components/responses/RateLimited" }
-    delete:
-      summary: Exclui uma reserva fixa
-      description: Cria um tombstone com deletedAt/deletedBy e libera os slots futuros correspondentes.
-      security: [{ sessionCookie: [] }]
-      parameters:
-        - $ref: "#/components/parameters/RecurringBookingId"
-        - $ref: "#/components/parameters/RequestIdHeader"
-      responses:
-        "204":
-          description: Reserva fixa removida das consultas ativas
-          headers:
-            X-Request-Id: { $ref: "#/components/headers/RequestId" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
   /club/courts/{courtId}:
     patch:
       summary: Atualiza os dados de uma quadra da arena autenticada
@@ -454,10 +378,10 @@ paths:
       summary: Agrega jogos criados e ocupação da grade por período
       description: >-
         O Quadrafy não processa pagamento da quadra, então este painel mostra
-        ocupação (jogos criados, jogos por quadra, taxa de ocupação,
-        abertos x privados), não receita. Quando period é informado, seu
-        intervalo prevalece sobre from e to. Datas personalizadas devem ser
-        enviadas em par e em ordem crescente.
+        ocupação (jogos criados, jogos por quadra, taxa de ocupação), não
+        receita. Quando period é informado, seu intervalo prevalece sobre
+        from e to. Datas personalizadas devem ser enviadas em par e em ordem
+        crescente.
       security: [{ sessionCookie: [] }]
       parameters:
         - name: period
@@ -645,11 +569,6 @@ components:
       schema: { type: string, format: uuid }
     BookingId:
       name: bookingId
-      in: path
-      required: true
-      schema: { type: string, format: uuid }
-    RecurringBookingId:
-      name: recurringBookingId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -916,22 +835,6 @@ components:
             required: [data]
             properties:
               data: { $ref: "#/components/schemas/FinanceData" }
-    RecurringBookingSuccess:
-      description: Reserva fixa criada ou atualizada
-      headers:
-        X-Request-Id: { $ref: "#/components/headers/RequestId" }
-      content:
-        application/json:
-          schema:
-            type: object
-            required: [data]
-            properties:
-              data:
-                type: object
-                required: [recurringBooking]
-                properties:
-                  recurringBooking:
-                    $ref: "#/components/schemas/RecurringBooking"
     Unauthorized:
       description: Sessão ausente ou inválida
       headers:
@@ -1272,19 +1175,25 @@ components:
           enum: [60, 90]
           deprecated: true
           description: Alias legado de slotDuration.
+    LevelCategories:
+      type: [array, "null"]
+      description: >-
+        Categorias oficiais permitidas no jogo. null/omitido = sem
+        restrição (todas as categorias). Mesma tabela de 7 categorias
+        reaproveitada do Super 8 (TASK-77).
+      items:
+        enum:
+          - Iniciante
+          - Iniciante Intermediário
+          - Intermediário
+          - Intermediário Avançado
+          - Avançado
+          - Avançado Elevado
+          - Elite
     BookingInput:
-      description: Jogo privado ou jogo aberto com faixa numérica obrigatória.
-      oneOf:
-        - $ref: "#/components/schemas/PrivateBookingInput"
-        - $ref: "#/components/schemas/OpenBookingInput"
-      discriminator:
-        propertyName: visibility
-        mapping:
-          private: "#/components/schemas/PrivateBookingInput"
-          open: "#/components/schemas/OpenBookingInput"
-    PrivateBookingInput:
+      description: Todo jogo criado é um jogo aberto, com categorias de nível opcionais.
       type: object
-      required: [clubId, courtId, startAt, visibility]
+      required: [clubId, courtId, startAt]
       properties:
         clubId: { type: string, format: uuid }
         courtId: { type: string, format: uuid }
@@ -1292,44 +1201,13 @@ components:
           type: string
           format: date-time
           description: Horário futuro situado no máximo 90 dias à frente.
-        visibility: { const: private }
+        levelCategories: { $ref: "#/components/schemas/LevelCategories" }
         allowConflict:
           type: boolean
           default: false
           description: >-
-            Confirma a criação mesmo com outro jogo/compromisso fixo já
-            criado na mesma quadra/horário (aviso, não bloqueio).
-    OpenBookingInput:
-      type: object
-      required:
-        [
-          clubId,
-          courtId,
-          startAt,
-          visibility,
-          levelMin,
-          levelMax,
-        ]
-      properties:
-        clubId: { type: string, format: uuid }
-        courtId: { type: string, format: uuid }
-        startAt:
-          type: string
-          format: date-time
-          description: Horário futuro situado no máximo 90 dias à frente.
-        visibility: { const: open }
-        levelMin: { type: number, minimum: 0.5, maximum: 7, multipleOf: 0.01 }
-        levelMax: { type: number, minimum: 0.5, maximum: 7, multipleOf: 0.01 }
-        allowConflict:
-          type: boolean
-          default: false
-          description: >-
-            Confirma a criação mesmo com outro jogo/compromisso fixo já
-            criado na mesma quadra/horário (aviso, não bloqueio).
-        availableSpots:
-          type: integer
-          deprecated: true
-          description: Ignorado; o servidor sempre cria jogos abertos para quatro jogadores.
+            Confirma a criação mesmo com outro jogo já criado na mesma
+            quadra/horário (aviso, não bloqueio).
     BookingUpdate:
       oneOf:
         - type: object
@@ -1337,21 +1215,8 @@ components:
           properties:
             status: { const: cancelled }
         - type: object
-          required: [visibility]
           properties:
-            visibility: { const: private }
-        - type: object
-          required: [visibility, levelMin, levelMax]
-          properties:
-            visibility: { const: open }
-            levelMin:
-              { type: number, minimum: 0.5, maximum: 7, multipleOf: 0.01 }
-            levelMax:
-              { type: number, minimum: 0.5, maximum: 7, multipleOf: 0.01 }
-            availableSpots:
-              type: integer
-              deprecated: true
-              description: Ignorado; maxPlayers permanece em quatro.
+            levelCategories: { $ref: "#/components/schemas/LevelCategories" }
     TeamIds:
       type: object
       required: [team1, team2]
@@ -1381,7 +1246,6 @@ components:
         - courtName
         - startAt
         - referencePrice
-        - visibility
         - maxPlayers
         - openSpots
         - participantIds
@@ -1408,25 +1272,15 @@ components:
             Preço de referência da quadra (cadastrado pelo clube). O
             Quadrafy não processa nem cobra esse valor — a reserva e o
             pagamento continuam sendo feitos fora da plataforma.
-        visibility: { enum: [private, open] }
-        levelRange: { type: [string, "null"] }
-        levelMin:
-          type: [number, "null"]
-          minimum: 0.5
-          maximum: 7
-        levelMax:
-          type: [number, "null"]
-          minimum: 0.5
-          maximum: 7
-        maxPlayers: { type: integer, enum: [1, 4] }
+        levelCategories: { $ref: "#/components/schemas/LevelCategories" }
+        maxPlayers: { type: integer, const: 4 }
         openSpots:
           type: integer
           minimum: 0
           maximum: 3
           description: >-
-            Vagas ainda disponíveis. O valor é persistido, começa em três no
-            jogo aberto e é atualizado conforme a lista de participantes;
-            reservas privadas usam zero.
+            Vagas ainda disponíveis. O valor é persistido e atualizado
+            conforme a lista de participantes.
         participantIds:
           type: array
           items: { type: string, format: uuid }
@@ -1528,10 +1382,7 @@ components:
         - courtName
         - startAt
         - referencePrice
-        - visibility
-        - levelRange
-        - levelMin
-        - levelMax
+        - levelCategories
         - maxPlayers
         - status
         - createdAt
@@ -1558,10 +1409,7 @@ components:
         referencePrice:
           type: [number, "null"]
           description: Preço de referência da quadra — informativo, não cobrado pelo Quadrafy.
-        visibility: { const: open }
-        levelRange: { type: [string, "null"] }
-        levelMin: { type: [number, "null"], minimum: 0.5, maximum: 7 }
-        levelMax: { type: [number, "null"], minimum: 0.5, maximum: 7 }
+        levelCategories: { $ref: "#/components/schemas/LevelCategories" }
         maxPlayers: { type: integer, const: 4 }
         status: { const: confirmed }
         createdAt: { type: string, format: date-time }
@@ -1626,80 +1474,14 @@ components:
           type: array
           items: { $ref: "#/components/schemas/MatchMessage" }
         nextCursor: { type: [string, "null"] }
-    WeeklyRecurrence:
-      type: object
-      required: [frequency, dayOfWeek]
-      properties:
-        frequency: { const: weekly }
-        dayOfWeek:
-          type: integer
-          minimum: 0
-          maximum: 6
-          description: 0 representa domingo e 6 representa sábado.
-    MonthlyRecurrence:
-      type: object
-      required: [frequency, dayOfMonth]
-      properties:
-        frequency: { const: monthly }
-        dayOfMonth: { type: integer, minimum: 1, maximum: 31 }
-    Recurrence:
-      oneOf:
-        - $ref: "#/components/schemas/WeeklyRecurrence"
-        - $ref: "#/components/schemas/MonthlyRecurrence"
-      discriminator:
-        propertyName: frequency
-    RecurringBookingInput:
-      type: object
-      required: [clientName, startTime, recurrence]
-      properties:
-        clientName: { type: string, minLength: 2, maxLength: 100 }
-        startTime:
-          type: string
-          pattern: "^([01]\\d|2[0-3]):(?:00|30)$"
-        recurrence: { $ref: "#/components/schemas/Recurrence" }
-    RecurringBookingUpdate:
-      type: object
-      required: [courtId, clientName, startTime, recurrence]
-      properties:
-        courtId: { type: string, minLength: 8, maxLength: 200 }
-        clientName: { type: string, minLength: 2, maxLength: 100 }
-        startTime:
-          type: string
-          pattern: "^([01]\\d|2[0-3]):(?:00|30)$"
-        recurrence: { $ref: "#/components/schemas/Recurrence" }
-    RecurringBooking:
-      type: object
-      required:
-        - id
-        - clubId
-        - courtId
-        - courtName
-        - clientName
-        - startTime
-        - recurrence
-        - createdAt
-        - updatedAt
-      properties:
-        id: { type: string, format: uuid }
-        clubId: { type: string, format: uuid }
-        courtId: { type: string, format: uuid }
-        courtName: { type: string }
-        clientName: { type: string }
-        startTime: { type: string }
-        recurrence: { $ref: "#/components/schemas/Recurrence" }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
     ClubSchedule:
       type: object
-      required: [date, courts, recurringBookings]
+      required: [date, courts]
       properties:
         date: { type: string, format: date }
         courts:
           type: array
           items: { $ref: "#/components/schemas/ScheduleCourt" }
-        recurringBookings:
-          type: array
-          items: { $ref: "#/components/schemas/RecurringBooking" }
     ClubDaySchedule:
       allOf:
         - $ref: "#/components/schemas/ClubSchedule"
@@ -1741,9 +1523,8 @@ components:
       properties:
         startAt: { type: string, format: date-time }
         time: { type: string }
-        status: { enum: [available, booked, recurring, blocked] }
+        status: { enum: [available, booked, blocked] }
         booking: { $ref: "#/components/schemas/Booking" }
-        recurringBooking: { $ref: "#/components/schemas/RecurringBooking" }
     FinanceData:
       type: object
       required:
@@ -1752,7 +1533,6 @@ components:
         - bookings
         - gamesByDay
         - occupancyByCourt
-        - byVisibility
         - previousPeriod
         - period
       properties:
@@ -1769,9 +1549,6 @@ components:
         occupancyByCourt:
           type: array
           items: { $ref: "#/components/schemas/FinanceOccupancy" }
-        byVisibility:
-          type: array
-          items: { $ref: "#/components/schemas/FinanceVisibility" }
         previousPeriod: { $ref: "#/components/schemas/FinanceGamesSummary" }
         period: { $ref: "#/components/schemas/FinancePeriod" }
     FinanceGamesSummary:
@@ -1808,13 +1585,6 @@ components:
         games: { type: integer, minimum: 0 }
         totalSlots: { type: integer, minimum: 0 }
         occupancyRate: { type: number, minimum: 0, maximum: 100 }
-    FinanceVisibility:
-      type: object
-      required: [visibility, label, games]
-      properties:
-        visibility: { enum: [open, private] }
-        label: { type: string }
-        games: { type: integer, minimum: 0 }
     FinancePeriod:
       type: object
       required: [from, to, previousFrom, previousTo]

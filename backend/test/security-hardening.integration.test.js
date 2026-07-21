@@ -147,7 +147,7 @@ function levelTestAnswers() {
   };
 }
 
-async function createPrivateBooking(api, cookie, { clubId, courtId, startAt }) {
+async function createBooking(api, cookie, { clubId, courtId, startAt }) {
   const response = await api("/api/v1/player/bookings", {
     method: "POST",
     cookie,
@@ -155,8 +155,7 @@ async function createPrivateBooking(api, cookie, { clubId, courtId, startAt }) {
       clubId,
       courtId,
       startAt,
-      paymentMethod: "pix",
-      visibility: "private",
+      levelCategories: null,
     },
   });
   assert.equal(response.status, 201);
@@ -195,8 +194,6 @@ test("bookings more than 90 days ahead are rejected before inventory lookup", as
         clubId: "club-security-id",
         courtId: "court-security-id",
         startAt: new Date(Date.now() + 91 * 24 * 60 * 60 * 1_000).toISOString(),
-        paymentMethod: "venue",
-        visibility: "private",
       },
     });
 
@@ -208,17 +205,14 @@ test("bookings more than 90 days ahead are rejected before inventory lookup", as
   });
 });
 
-test("an open-match creator needs an assessment and a compatible level", async () => {
+test("an open-match creator needs an assessment and a compatible level category", async () => {
   await withTestServer(async ({ api }) => {
     const player = await registerPlayer(api, "creator-level");
     const baseBody = {
       clubId: "club-security-id",
       courtId: "court-security-id",
       startAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString(),
-      paymentMethod: "venue",
-      visibility: "open",
-      levelMin: 6,
-      levelMax: 7,
+      levelCategories: ["Elite"],
     };
 
     const withoutAssessment = await api("/api/v1/player/bookings", {
@@ -238,17 +232,18 @@ test("an open-match creator needs an assessment and a compatible level", async (
       body: levelTestAnswers(),
     });
     assert.equal(assessment.status, 200);
-    const assessedLevel = (await assessment.json()).data.result.nivel_inicial;
-    assert.ok(assessedLevel < baseBody.levelMin);
+    const assessedCategory = (await assessment.json()).data.result
+      .categoria_sugerida;
+    assert.notEqual(assessedCategory, "Elite");
 
-    const incompatibleRange = await api("/api/v1/player/bookings", {
+    const incompatibleCategory = await api("/api/v1/player/bookings", {
       method: "POST",
       cookie: player.cookie,
       body: baseBody,
     });
-    assert.equal(incompatibleRange.status, 409);
+    assert.equal(incompatibleCategory.status, 409);
     assert.equal(
-      (await errorFrom(incompatibleRange)).code,
+      (await errorFrom(incompatibleCategory)).code,
       "level_not_eligible",
     );
   });
@@ -257,16 +252,18 @@ test("an open-match creator needs an assessment and a compatible level", async (
 test("joining an open match after its start is rejected atomically", async () => {
   await withTestServer(async ({ api, app }) => {
     const player = await registerPlayer(api, "past-match");
+    const assessment = await api("/api/v1/player/level-test", {
+      method: "POST",
+      cookie: player.cookie,
+      body: levelTestAnswers(),
+    });
+    assert.equal(assessment.status, 200);
     const match = await app.bookings.create({
       playerId: "historical-owner-id",
       clubId: "historical-club-id",
       courtId: "historical-court-id",
       startAt: new Date(Date.now() - 60_000).toISOString(),
-      price: 120,
-      paymentMethod: "venue",
-      visibility: "open",
-      levelMin: null,
-      levelMax: null,
+      levelCategories: null,
       maxPlayers: 4,
       status: "confirmed",
     });
@@ -285,32 +282,19 @@ test("agenda conflicts and sensitive mutations produce attributable audit events
     const clubAccount = await registerClub(api, "audit");
     const court = await createCourt(api, clubAccount.cookie, "audit");
     const player = await registerPlayer(api, "audit");
+    const playerLevel = await api("/api/v1/player/level-test", {
+      method: "POST",
+      cookie: player.cookie,
+      body: levelTestAnswers(),
+    });
+    assert.equal(playerLevel.status, 200);
     const date = futureDateKey(30);
     const startAt = bookingStartAt(date, "08:00");
-    const booking = await createPrivateBooking(api, player.cookie, {
+    const booking = await createBooking(api, player.cookie, {
       clubId: clubAccount.club.id,
       courtId: court.id,
       startAt,
     });
-    const dayOfWeek = new Date(`${date}T12:00:00.000Z`).getUTCDay();
-
-    const conflictingRecurrence = await api(
-      `/api/v1/club/courts/${court.id}/recurring-bookings`,
-      {
-        method: "POST",
-        cookie: clubAccount.cookie,
-        body: {
-          clientName: "Cliente em conflito",
-          startTime: "08:00",
-          recurrence: { frequency: "weekly", dayOfWeek },
-        },
-      },
-    );
-    assert.equal(conflictingRecurrence.status, 409);
-    assert.equal(
-      (await errorFrom(conflictingRecurrence)).code,
-      "recurring_booking_conflict",
-    );
 
     const cancellationRequestId = "security-cancellation-request";
     const cancellation = await api(`/api/v1/player/bookings/${booking.id}`, {
@@ -320,33 +304,6 @@ test("agenda conflicts and sensitive mutations produce attributable audit events
       body: { status: "cancelled" },
     });
     assert.equal(cancellation.status, 200);
-
-    const recurringCreation = await api(
-      `/api/v1/club/courts/${court.id}/recurring-bookings`,
-      {
-        method: "POST",
-        cookie: clubAccount.cookie,
-        headers: { "X-Request-Id": "security-recurring-create-request" },
-        body: {
-          clientName: "Cliente auditavel",
-          startTime: "09:00",
-          recurrence: { frequency: "weekly", dayOfWeek },
-        },
-      },
-    );
-    assert.equal(recurringCreation.status, 201);
-    const recurring = (await recurringCreation.json()).data.recurringBooking;
-
-    const recurringDeleteRequestId = "security-recurring-delete-request";
-    const recurringDeletion = await api(
-      `/api/v1/club/recurring-bookings/${recurring.id}`,
-      {
-        method: "DELETE",
-        cookie: clubAccount.cookie,
-        headers: { "X-Request-Id": recurringDeleteRequestId },
-      },
-    );
-    assert.equal(recurringDeletion.status, 204);
 
     const events = JSON.parse(
       await readFile(path.join(dataDirectory, "audit-log.json"), "utf8"),
@@ -360,17 +317,6 @@ test("agenda conflicts and sensitive mutations produce attributable audit events
     assert.equal(cancellationEvent.requestId, cancellationRequestId);
     assert.equal(cancellationEvent.before.status, "confirmed");
     assert.equal(cancellationEvent.after.status, "cancelled");
-
-    const recurringDeleteEvent = events.find(
-      (event) =>
-        event.action === "recurring_booking.deleted" &&
-        event.resourceId === recurring.id,
-    );
-    assert.ok(recurringDeleteEvent);
-    assert.equal(recurringDeleteEvent.actorId, clubAccount.user.id);
-    assert.equal(recurringDeleteEvent.requestId, recurringDeleteRequestId);
-    assert.equal(recurringDeleteEvent.before.clientName, "Cliente auditavel");
-    assert.ok(recurringDeleteEvent.after.deletedAt);
   });
 });
 

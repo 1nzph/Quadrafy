@@ -3268,10 +3268,6 @@ em {
   background: rgba(27, 42, 74, 0.1);
   color: var(--indigo);
 }
-.schedule-cell.open-match span {
-  background: rgba(255, 107, 74, 0.12);
-  color: var(--coral-dark);
-}
 .reservation-table-wrap {
   overflow: auto;
   border: 1px solid var(--line);
@@ -3729,11 +3725,6 @@ em {
 .modal-backdrop.open .modal-card {
   transform: none;
 }
-.recurring-detail-actions {
-  display: grid;
-  gap: 10px;
-  margin-top: 24px;
-}
 .modal-close {
   position: absolute;
   top: 16px;
@@ -3776,77 +3767,6 @@ em {
 }
 .modal-booking-info strong {
   font-size: 11px;
-}
-.booking-visibility {
-  border: 0;
-  margin: 21px 0 0;
-  padding: 0;
-}
-.booking-visibility legend {
-  margin-bottom: 10px;
-  font-size: 10px;
-  font-weight: 700;
-}
-.visibility-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.visibility-options label {
-  position: relative;
-  display: grid;
-  min-height: 92px;
-  grid-template-columns: 1fr auto;
-  align-items: start;
-  gap: 10px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  padding: 14px;
-  background: rgba(255, 255, 255, 0.4);
-  cursor: pointer;
-  transition:
-    border-color 0.2s,
-    background 0.2s,
-    transform 0.2s var(--ease);
-}
-.visibility-options label:hover {
-  transform: translateY(-1px);
-}
-.visibility-options label.active,
-.visibility-options label:has(input:checked) {
-  border-color: var(--coral);
-  background: #fff;
-  box-shadow: 0 8px 22px rgba(255, 107, 74, 0.08);
-}
-.visibility-options input {
-  position: absolute;
-  opacity: 0;
-}
-.visibility-options label > span {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.visibility-options strong {
-  font-size: 10px;
-}
-.visibility-options small {
-  color: var(--ink-soft);
-  font-size: 8px;
-  line-height: 1.45;
-}
-.visibility-options label > i {
-  width: 10px;
-  height: 10px;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  margin-top: 2px;
-}
-.visibility-options label.active > i,
-.visibility-options label:has(input:checked) > i {
-  border: 3px solid #fff;
-  background: var(--coral);
-  box-shadow: 0 0 0 1px var(--coral);
 }
 .open-match-fields {
   display: grid;
@@ -4609,9 +4529,6 @@ button.match-player-row:focus-visible strong {
 .schedule-legend [data-schedule-status="booked"]::before {
   background: rgba(27, 42, 74, 0.2);
 }
-.schedule-legend [data-schedule-status="recurring"]::before {
-  background: rgba(255, 107, 74, 0.3);
-}
 .schedule-legend [data-schedule-status="blocked"]::before {
   background: repeating-linear-gradient(
     -45deg,
@@ -4632,12 +4549,6 @@ button.match-player-row:focus-visible strong {
   left: 0;
   z-index: 1;
   background: #fff;
-}
-.schedule-cell[data-schedule-status="recurring"] {
-  cursor: pointer;
-}
-.schedule-cell[data-schedule-status="recurring"]:hover span {
-  box-shadow: inset 0 0 0 1px var(--coral);
 }
 .schedule-cell.blocked span {
   background: repeating-linear-gradient(
@@ -5212,7 +5123,6 @@ button.match-player-row:focus-visible strong {
   .modal-card {
     padding: 24px 18px;
   }
-  .visibility-options,
   .open-match-fields,
   .match-detail-summary {
     grid-template-columns: 1fr;
@@ -6405,19 +6315,6 @@ button.super8-open-row:focus-visible {
   background: rgba(255, 107, 74, 0.18);
   border: 1px solid rgba(255, 107, 74, 0.4);
   color: var(--coral-dark);
-}
-/* Fixo mensal: tom sólido "carimbado", nome do cliente em destaque */
-.schedule-cell[data-schedule-status="recurring"] span {
-  background: var(--indigo, #1b2a4a);
-  border: 1px solid var(--indigo, #1b2a4a);
-  color: #fff;
-  font-size: 12.5px;
-  font-weight: 700;
-  white-space: normal;
-}
-.schedule-cell[data-schedule-status="recurring"]:hover span,
-.schedule-cell[data-schedule-status="recurring"]:focus-visible span {
-  filter: brightness(1.18);
 }
 /* Bloqueado: cinza escuro hachurado, inconfundível */
 .schedule-cell[data-schedule-status="blocked"] span {

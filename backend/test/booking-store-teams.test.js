@@ -41,11 +41,7 @@ async function createOpenBooking(store) {
     clubId: "club-1",
     courtId: "court-1",
     startAt: "2099-08-10T22:00:00.000Z",
-    price: 120,
-    paymentMethod: "pix",
-    visibility: "open",
-    levelMin: 2,
-    levelMax: 4,
+    levelCategories: null,
     maxPlayers: 4,
   });
 }

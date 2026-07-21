@@ -32,14 +32,13 @@ import {
   validateLogin,
   validateMatchMessage,
   validatePlayerProfile,
-  validateRecurringBooking,
-  validateRecurringBookingUpdate,
   validateArena,
   validateRegistration,
   validateSuper8,
   validateSuper8Courts,
   validateSuper8GameResult,
   validateSuper8Pairs,
+  validateSuper8Update,
 } from "./lib/validation.js";
 import { computeOccupancyAnalytics } from "./services/finance-analytics.js";
 import { AuditLogStore } from "./stores/audit-log-store.js";
@@ -68,7 +67,6 @@ import {
   normalizeReliability,
 } from "./lib/level-engine.js";
 import { MatchMessageStore } from "./stores/match-message-store.js";
-import { RecurringBookingStore } from "./stores/recurring-booking-store.js";
 import { SessionStore } from "./stores/session-store.js";
 import { toPublicUser, UserStore } from "./stores/user-store.js";
 
@@ -288,7 +286,6 @@ export async function createApp(overrides = {}) {
   const bookings = new BookingStore(config.dataDirectory);
   const levelTests = new LevelTestStore(config.dataDirectory);
   const matchMessages = new MatchMessageStore(config.dataDirectory);
-  const recurringBookings = new RecurringBookingStore(config.dataDirectory);
   const auditLog = new AuditLogStore(config.dataDirectory);
   const matchResults = new MatchResultStore(config.dataDirectory);
   const levelHistory = new LevelHistoryStore(config.dataDirectory);
@@ -330,11 +327,6 @@ export async function createApp(overrides = {}) {
     windowMs: 60 * 60 * 1000,
     maxEntries: 50_000,
   });
-  const recurringLimiter = new RateLimiter({
-    limit: 120,
-    windowMs: 60 * 60 * 1000,
-    maxEntries: 20_000,
-  });
   const uploadLimiter = new RateLimiter({
     limit: 30,
     windowMs: 60 * 60 * 1000,
@@ -348,7 +340,6 @@ export async function createApp(overrides = {}) {
     bookings.initialize(),
     levelTests.initialize(),
     matchMessages.initialize(),
-    recurringBookings.initialize(),
     auditLog.initialize(),
     matchResults.initialize(),
     levelHistory.initialize(),
@@ -444,25 +435,35 @@ export async function createApp(overrides = {}) {
     }
   }
 
-  function assertPlayerEligibleForRange(user, { levelMin, levelMax }) {
-    if (!Number.isFinite(levelMin) || !Number.isFinite(levelMax)) return;
-    const playerLevel = Number(user.profile.level);
-    if (
-      user.profile.levelAssessmentCompleted !== true ||
-      !Number.isFinite(playerLevel)
-    ) {
+  // TASK-77 — categoria técnica (das 7 oficiais) do nível atual do jogador.
+  function playerLevelCategory(user) {
+    return classificationFor(user?.profile?.level)?.technical ?? null;
+  }
+
+  function levelCategoriesLabel(levelCategories) {
+    return levelCategories?.length
+      ? levelCategories.join(" e ")
+      : "todas as categorias";
+  }
+
+  // TASK-92 — a faixa numérica de nível vira seleção de categorias oficiais
+  // (mesmo padrão de restrição já usado no Super 8, TASK-77).
+  function assertPlayerLevelCategoryAllowed(user, { levelCategories }) {
+    if (user.profile.levelAssessmentCompleted !== true) {
       throw new ApiError(
         409,
         "level_assessment_required",
-        "Conclua o teste de nível para usar uma faixa de matchmaking.",
+        "Conclua o teste de nível para criar ou entrar em um jogo.",
       );
     }
-    if (playerLevel < levelMin || playerLevel > levelMax) {
+    if (!levelCategories) return;
+    const category = playerLevelCategory(user);
+    if (!category || !levelCategories.includes(category)) {
       throw new ApiError(
         409,
         "level_not_eligible",
-        "Seu nível está fora da faixa selecionada.",
-        { playerLevel, levelMin, levelMax },
+        `Este jogo é restrito às categorias ${levelCategoriesLabel(levelCategories)}.`,
+        { levelCategories },
       );
     }
   }
@@ -470,9 +471,7 @@ export async function createApp(overrides = {}) {
   function bookingAuditSnapshot(booking) {
     return {
       status: booking.status,
-      visibility: booking.visibility,
-      levelMin: booking.levelMin ?? null,
-      levelMax: booking.levelMax ?? null,
+      levelCategories: booking.levelCategories ?? null,
     };
   }
 
@@ -542,16 +541,10 @@ export async function createApp(overrides = {}) {
       // TASK-78 — preço da quadra fica só como referência (o Quadrafy não
       // cobra nem processa pagamento da reserva feita por fora).
       referencePrice: court?.price ?? null,
-      visibility: booking.visibility,
-      levelRange: booking.levelRange,
-      levelMin: booking.levelMin ?? null,
-      levelMax: booking.levelMax ?? null,
+      levelCategories: booking.levelCategories ?? null,
       maxPlayers: booking.maxPlayers,
       genderCategory: booking.genderCategory ?? "all",
-      openSpots:
-        booking.visibility === "open"
-          ? Math.max(0, booking.maxPlayers - participantIds.length)
-          : 0,
+      openSpots: Math.max(0, booking.maxPlayers - participantIds.length),
       participantIds,
       teams: booking.teams ?? null,
       slotDuration: court?.slotDuration ?? court?.slotDurationMinutes ?? null,
@@ -590,10 +583,7 @@ export async function createApp(overrides = {}) {
       courtName: base.courtName,
       startAt: base.startAt,
       referencePrice: base.referencePrice,
-      visibility: base.visibility,
-      levelRange: base.levelRange,
-      levelMin: base.levelMin,
-      levelMax: base.levelMax,
+      levelCategories: base.levelCategories,
       maxPlayers: base.maxPlayers,
       genderCategory: base.genderCategory,
       participantIds,
@@ -628,55 +618,6 @@ export async function createApp(overrides = {}) {
     };
   }
 
-  function recurringView(recurring) {
-    const court = courts.findById(recurring.courtId);
-    return {
-      id: recurring.id,
-      clubId: recurring.clubId,
-      courtId: recurring.courtId,
-      courtName: court?.name ?? "Quadra indisponível",
-      clientName: recurring.clientName,
-      startTime: recurring.startTime,
-      recurrence: recurring.recurrence,
-      createdAt: recurring.createdAt,
-      updatedAt: recurring.updatedAt,
-    };
-  }
-
-  function recurringOccursOn(recurring, date) {
-    const [year, month, day] = date.split("-").map(Number);
-    if (recurring.recurrence.frequency === "monthly") {
-      return recurring.recurrence.dayOfMonth === day;
-    }
-    const dayOfWeek = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-    return recurring.recurrence.dayOfWeek === dayOfWeek;
-  }
-
-  function assertNoConfirmedBookingForRecurrence({
-    clubId,
-    courtId,
-    startTime,
-    recurrence,
-  }) {
-    const candidate = { recurrence };
-    const conflicts = bookings
-      .listByClub(clubId)
-      .some(
-        (booking) =>
-          booking.status === "confirmed" &&
-          booking.courtId === courtId &&
-          brazilTimeKey(booking.startAt) === startTime &&
-          recurringOccursOn(candidate, brazilDateKey(booking.startAt)),
-      );
-    if (conflicts) {
-      throw new ApiError(
-        409,
-        "recurring_booking_conflict",
-        "Já existe uma reserva avulsa em uma ocorrência desta agenda.",
-      );
-    }
-  }
-
   function slotTimesFor(court) {
     const slots = [];
     const openTime = court.openTime ?? court.opensAt;
@@ -706,22 +647,13 @@ export async function createApp(overrides = {}) {
         )
         .map((booking) => `${booking.courtId}:${booking.startAt}`),
     );
-    const recurringStarts = new Set(
-      recurringBookings
-        .listByClub(club.id)
-        .filter((recurring) => recurringOccursOn(recurring, date))
-        .map((recurring) => `${recurring.courtId}:${recurring.startTime}`),
-    );
-
     return activeCourts.map((court) => {
       const slots = slotTimesFor(court).map((time) => {
         const startAt = new Date(`${date}T${time}:00-03:00`).toISOString();
         return {
           startAt,
           time,
-          available:
-            !reservedStarts.has(`${court.id}:${startAt}`) &&
-            !recurringStarts.has(`${court.id}:${time}`),
+          available: !reservedStarts.has(`${court.id}:${startAt}`),
         };
       });
       return {
@@ -741,10 +673,6 @@ export async function createApp(overrides = {}) {
           booking.status === "confirmed" &&
           brazilDateKey(booking.startAt) === date,
       );
-    const dateRecurring = recurringBookings
-      .listByClub(club.id)
-      .filter((recurring) => recurringOccursOn(recurring, date));
-
     return {
       date,
       courts: courts.listByClub(club.id).map((court) => {
@@ -754,20 +682,13 @@ export async function createApp(overrides = {}) {
           const booking = dateBookings.find(
             (entry) => entry.courtId === court.id && entry.startAt === startAt,
           );
-          const recurring = dateRecurring.find(
-            (entry) => entry.courtId === court.id && entry.startTime === time,
-          );
           let status = active ? "available" : "blocked";
-          if (recurring) status = "recurring";
           if (booking) status = "booked";
           return {
             startAt,
             time,
             status,
             ...(booking ? { booking: bookingView(booking) } : {}),
-            ...(recurring
-              ? { recurringBooking: recurringView(recurring) }
-              : {}),
           };
         });
         return {
@@ -778,7 +699,6 @@ export async function createApp(overrides = {}) {
           slots,
         };
       }),
-      recurringBookings: dateRecurring.map(recurringView),
     };
   }
 
@@ -1385,145 +1305,6 @@ export async function createApp(overrides = {}) {
       return true;
     }
 
-    const recurringCreationRoute = pathname.match(
-      /^\/api\/v1\/club\/courts\/([^/]+)\/recurring-bookings$/,
-    );
-    if (recurringCreationRoute && request.method === "POST") {
-      assertSameOrigin(request);
-      const user = requireUser(request, "club");
-      const club = await clubs.ensureForUser(user);
-      const courtId = decodeURIComponent(recurringCreationRoute[1]);
-      const court = courts.findById(courtId);
-      if (!court || court.clubId !== club.id || !court.active) {
-        throw new ApiError(404, "court_not_found", "Quadra não encontrada.");
-      }
-      recurringLimiter.consume(user.id);
-      const input = validateRecurringBooking(await readJson(request));
-      if (!slotTimesFor(court).includes(input.startTime)) {
-        throw new ApiError(
-          422,
-          "invalid_slot",
-          "O horário não pertence à grade desta quadra.",
-          { field: "startTime" },
-        );
-      }
-      const recurringBooking = await withAgendaLock(async () => {
-        assertNoConfirmedBookingForRecurrence({
-          clubId: club.id,
-          courtId,
-          ...input,
-        });
-        return recurringBookings.create({
-          clubId: club.id,
-          courtId,
-          ...input,
-        });
-      });
-      await auditLog.record({
-        actorId: user.id,
-        action: "recurring_booking.created",
-        resourceType: "recurring_booking",
-        resourceId: recurringBooking.id,
-        after: recurringView(recurringBooking),
-        requestId: request.requestId,
-      });
-      sendData(
-        response,
-        201,
-        { recurringBooking: recurringView(recurringBooking) },
-        {
-          Location: `/api/v1/club/recurring-bookings/${recurringBooking.id}`,
-        },
-      );
-      return true;
-    }
-
-    const recurringUpdateRoute = pathname.match(
-      /^\/api\/v1\/club\/recurring-bookings\/([^/]+)$/,
-    );
-    if (recurringUpdateRoute && request.method === "PATCH") {
-      assertSameOrigin(request);
-      const user = requireUser(request, "club");
-      const club = await clubs.ensureForUser(user);
-      const recurringId = decodeURIComponent(recurringUpdateRoute[1]);
-      const recurring = recurringBookings.findById(recurringId);
-      if (!recurring || recurring.clubId !== club.id) {
-        throw new ApiError(
-          404,
-          "recurring_booking_not_found",
-          "Reserva fixa não encontrada.",
-        );
-      }
-      recurringLimiter.consume(user.id);
-      const input = validateRecurringBookingUpdate(await readJson(request));
-      const court = courts.findById(input.courtId);
-      if (!court || court.clubId !== club.id || !court.active) {
-        throw new ApiError(404, "court_not_found", "Quadra não encontrada.");
-      }
-      if (!slotTimesFor(court).includes(input.startTime)) {
-        throw new ApiError(
-          422,
-          "invalid_slot",
-          "O horário não pertence à grade desta quadra.",
-          { field: "startTime" },
-        );
-      }
-      const before = recurringView(recurring);
-      const updated = await withAgendaLock(() => {
-        assertNoConfirmedBookingForRecurrence({
-          clubId: club.id,
-          ...input,
-        });
-        return recurringBookings.update(recurringId, input);
-      });
-      const after = recurringView(updated);
-      await auditLog.record({
-        actorId: user.id,
-        action: "recurring_booking.updated",
-        resourceType: "recurring_booking",
-        resourceId: recurringId,
-        before,
-        after,
-        requestId: request.requestId,
-      });
-      sendData(response, 200, { recurringBooking: after });
-      return true;
-    }
-
-    const recurringDeleteRoute = pathname.match(
-      /^\/api\/v1\/club\/recurring-bookings\/([^/]+)$/,
-    );
-    if (recurringDeleteRoute && request.method === "DELETE") {
-      assertSameOrigin(request);
-      const user = requireUser(request, "club");
-      const club = await clubs.ensureForUser(user);
-      const recurringId = decodeURIComponent(recurringDeleteRoute[1]);
-      const recurring = recurringBookings.findById(recurringId);
-      if (!recurring || recurring.clubId !== club.id) {
-        throw new ApiError(
-          404,
-          "recurring_booking_not_found",
-          "Reserva fixa não encontrada.",
-        );
-      }
-      const before = recurringView(recurring);
-      const deleted = await withAgendaLock(() =>
-        recurringBookings.delete(recurringId, user.id),
-      );
-      await auditLog.record({
-        actorId: user.id,
-        action: "recurring_booking.deleted",
-        resourceType: "recurring_booking",
-        resourceId: recurringId,
-        before,
-        after: { deletedAt: deleted.deletedAt },
-        requestId: request.requestId,
-      });
-      response.writeHead(204, { "Cache-Control": "no-store" });
-      response.end();
-      return true;
-    }
-
     if (pathname === "/api/v1/club/courts" && request.method === "GET") {
       const user = requireUser(request, "club");
       const club = await clubs.ensureForUser(user);
@@ -1776,8 +1557,8 @@ export async function createApp(overrides = {}) {
         throw new ApiError(404, "booking_not_found", "Reserva não encontrada.");
       }
       const update = validateBookingUpdate(await readJson(request));
-      if (update.visibility === "open") {
-        assertPlayerEligibleForRange(user, update);
+      if (update.status !== "cancelled") {
+        assertPlayerLevelCategoryAllowed(user, update);
       }
       // TASK-79 — cancelar é simples e sem prazo/reembolso: não há mais
       // janela de cancelamento gratuito.
@@ -1788,7 +1569,7 @@ export async function createApp(overrides = {}) {
         action:
           update.status === "cancelled"
             ? "booking.cancelled"
-            : "booking.visibility_changed",
+            : "booking.updated",
         resourceType: "booking",
         resourceId: updated.id,
         before,
@@ -1805,20 +1586,18 @@ export async function createApp(overrides = {}) {
       bookingLimiter.consume(user.id);
       const rawBody = await readJson(request);
       const input = validateBooking(rawBody);
-      assertPlayerEligibleForRange(user, input);
+      assertPlayerLevelCategoryAllowed(user, input);
       // TASK-49: o criador ocupa a primeira vaga, então também precisa ser
       // compatível com a categoria escolhida.
-      if (input.visibility === "open") {
-        assertGenderAllowed(
-          { genderCategory: input.genderCategory, teams: null },
-          user,
-        );
-      }
+      assertGenderAllowed(
+        { genderCategory: input.genderCategory, teams: null },
+        user,
+      );
       // TASKS-14 / TASK-60 — o criador pode adicionar até 3 jogadores já na
       // criação; eles entram confirmados nas próximas vagas (team1 slot 1,
       // team2 slots 0 e 1), respeitando nível e categoria de gênero.
       let invitedPlayers = [];
-      if (input.visibility === "open" && rawBody?.invitedPlayerIds) {
+      if (rawBody?.invitedPlayerIds) {
         const rawIds = rawBody.invitedPlayerIds;
         if (!Array.isArray(rawIds) || rawIds.length > 3) {
           throw new ApiError(
@@ -1847,7 +1626,7 @@ export async function createApp(overrides = {}) {
               { field: "invitedPlayerIds" },
             );
           }
-          assertPlayerEligibleForRange(invited, input);
+          assertPlayerLevelCategoryAllowed(invited, input);
           return invited;
         });
       }
@@ -2039,11 +1818,7 @@ export async function createApp(overrides = {}) {
       const user = requireUser(request, "player");
       const matchId = decodeURIComponent(matchMessagesRoute[1]);
       const booking = bookings.findById(matchId);
-      if (
-        !booking ||
-        booking.visibility !== "open" ||
-        booking.status !== "confirmed"
-      ) {
+      if (!booking || booking.status !== "confirmed") {
         throw new ApiError(404, "match_not_found", "Jogo não encontrado.");
       }
       if (!(booking.participantIds ?? []).includes(user.id)) {
@@ -2113,11 +1888,7 @@ export async function createApp(overrides = {}) {
       const booking = bookings.findById(
         decodeURIComponent(matchDetailRoute[1]),
       );
-      if (
-        !booking ||
-        booking.visibility !== "open" ||
-        booking.status !== "confirmed"
-      ) {
+      if (!booking || booking.status !== "confirmed") {
         throw new ApiError(404, "match_not_found", "Jogo não encontrado.");
       }
       sendData(response, 200, { match: matchView(booking, user) });
@@ -2132,7 +1903,7 @@ export async function createApp(overrides = {}) {
       const user = requireUser(request, "player");
       const matchId = decodeURIComponent(matchJoinRoute[1]);
       const currentMatch = bookings.findById(matchId);
-      if (currentMatch) assertPlayerEligibleForRange(user, currentMatch);
+      if (currentMatch) assertPlayerLevelCategoryAllowed(user, currentMatch);
       const hasJsonBody = String(request.headers["content-type"] || "")
         .toLowerCase()
         .includes("application/json");
@@ -2300,11 +2071,7 @@ export async function createApp(overrides = {}) {
 
     function requireResultEligibleMatch(matchId, user) {
       const booking = bookings.findById(matchId);
-      if (
-        !booking ||
-        booking.visibility !== "open" ||
-        booking.status !== "confirmed"
-      ) {
+      if (!booking || booking.status !== "confirmed") {
         throw new ApiError(404, "match_not_found", "Jogo não encontrado.");
       }
       const participantIds = booking.participantIds ?? [];
@@ -2700,17 +2467,6 @@ export async function createApp(overrides = {}) {
     // (ex.: saldo de games) pode ser adicionada depois. Validar com produto
     // antes de mudar essa regra.
 
-    // TASK-77 — categoria técnica (das 7 oficiais) do nível atual do jogador.
-    function playerLevelCategory(user) {
-      return classificationFor(user?.profile?.level)?.technical ?? null;
-    }
-
-    function levelCategoriesLabel(levelCategories) {
-      return levelCategories?.length
-        ? levelCategories.join(" e ")
-        : "todas as categorias";
-    }
-
     // TASK-76 — enriquece o jogador do quadro com foto/nível atuais (quando
     // vinculado a uma conta), para a tela de detalhe completo.
     function playerWithProfile(player) {
@@ -2844,6 +2600,113 @@ export async function createApp(overrides = {}) {
       }
       const tournament = await super8.update(tournamentId, club.id, {
         courtIds: input.courtIds,
+      });
+      sendData(response, 200, { tournament: super8View(tournament) });
+      return true;
+    }
+
+    // TASK-90 — o clube edita nome, categorias, horário e tamanho mesmo com
+    // inscrições abertas ou jogadores já inscritos. Depois que os jogos já
+    // foram gerados, só nome e horário (informativo) continuam editáveis —
+    // tamanho e categorias afetariam a identidade/o número de jogadores dos
+    // confrontos já montados.
+    const super8UpdateRoute = pathname.match(
+      /^\/api\/v1\/club\/super8\/([^/]+)$/,
+    );
+    if (super8UpdateRoute && request.method === "PATCH") {
+      assertSameOrigin(request);
+      const user = requireUser(request, "club");
+      const club = await clubs.ensureForUser(user);
+      const tournamentId = decodeURIComponent(super8UpdateRoute[1]);
+      const current = super8.requireOwned(tournamentId, club.id);
+      const rawBody = await readJson(request);
+      const input = validateSuper8Update(rawBody);
+
+      const locked = ["gerado", "em_andamento", "finalizado"].includes(
+        current.status,
+      );
+      if (
+        locked &&
+        (input.size !== undefined || input.levelCategories !== undefined)
+      ) {
+        throw new ApiError(
+          409,
+          "super8_locked_after_generation",
+          "Os confrontos já foram gerados — só é possível editar nome e horário de início a partir daqui.",
+        );
+      }
+
+      if (input.size !== undefined && input.size < current.players.length) {
+        throw new ApiError(
+          409,
+          "super8_size_below_roster",
+          `Não é possível reduzir para ${input.size} jogadores: já existem ${current.players.length} inscritos. Remova jogadores primeiro ou mantenha o tamanho atual.`,
+          { currentPlayers: current.players.length },
+        );
+      }
+
+      let players = current.players;
+      let pairs = current.pairs;
+      if (
+        input.levelCategories !== undefined &&
+        input.levelCategories !== null
+      ) {
+        const ineligible = current.players.filter((player) => {
+          if (!player.id) return false;
+          const linked = users.findById(player.id);
+          const category = linked ? playerLevelCategory(linked) : null;
+          return !category || !input.levelCategories.includes(category);
+        });
+        if (ineligible.length) {
+          const decision = rawBody?.onIneligiblePlayers;
+          if (decision !== "remove" && decision !== "keep") {
+            throw new ApiError(
+              409,
+              "super8_category_change_needs_confirmation",
+              `${ineligible.length} ${ineligible.length === 1 ? "jogador já inscrito não se encaixa" : "jogadores já inscritos não se encaixam"} nas novas categorias selecionadas (${levelCategoriesLabel(input.levelCategories)}). Deseja removê-los automaticamente ou manter a mudança mesmo assim?`,
+              {
+                affectedPlayers: ineligible.map((player) => ({
+                  id: player.id,
+                  name: player.name,
+                })),
+              },
+            );
+          }
+          if (decision === "remove") {
+            const removedIds = new Set(ineligible.map((player) => player.id));
+            players = current.players.filter(
+              (player) => !removedIds.has(player.id),
+            );
+            // TASK-74: duplas são pares de índices na lista de jogadores —
+            // remover alguém invalida os índices, então o clube redefine as
+            // duplas depois (PATCH .../pairs).
+            pairs = null;
+          }
+        }
+      }
+
+      if (
+        input.size !== undefined &&
+        input.size !== current.size &&
+        current.pairs
+      ) {
+        pairs = null;
+      }
+
+      const before = { name: current.name, size: current.size };
+      const tournament = await super8.update(tournamentId, club.id, {
+        ...input,
+        players,
+        pairs,
+      });
+      await auditLog.record({
+        actorId: user.id,
+        action: "super8.updated",
+        resourceType: "super8",
+        resourceId: tournamentId,
+        before,
+        after: { name: tournament.name, size: tournament.size },
+        requestId: request.requestId,
       });
       sendData(response, 200, { tournament: super8View(tournament) });
       return true;
@@ -3573,7 +3436,6 @@ export async function createApp(overrides = {}) {
     bookings,
     levelTests,
     matchMessages,
-    recurringBookings,
     auditLog,
     supabaseEnabled,
   };

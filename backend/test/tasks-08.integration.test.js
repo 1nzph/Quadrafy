@@ -150,10 +150,7 @@ async function createOpenMatch(api, joiners = []) {
       courtId,
       startAt: bookingStartAt(),
       paymentMethod: "pix",
-      visibility: "open",
-      levelMin: 0.5,
-      levelMax: 7,
-      levelRange: "0.50 - 7.00",
+      levelCategories: null,
       availableSpots: 3,
     },
   });

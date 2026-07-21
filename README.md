@@ -83,4 +83,4 @@ npm run check
 O contrato HTTP está em `docs/openapi.yaml`. Configuração e regras de domínio
 estão em `backend/README.md`.
 
-<!-- deploy trigger -->
+<!-- deploy trigger 2 -->

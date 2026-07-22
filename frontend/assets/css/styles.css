@@ -5219,8 +5219,8 @@ button.match-player-row:focus-visible strong {
   }
   .club-grid {
     grid-template-columns: 1fr;
-    max-width: 55%;
-    margin-inline: auto;
+    max-width: 100%;
+    margin-inline: 0;
   }
   .club-cover {
     height: 190px;

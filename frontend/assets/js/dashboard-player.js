@@ -157,14 +157,12 @@
     return remainder ? `${hours}h${String(remainder).padStart(2, "0")}` : `${hours}h`;
   }
 
-  // Faixa de horário do slot no formato "das 15:00 às 16:00", calculando o
-  // fim a partir do início (startAt) mais a duração do slot.
   function slotTimeRange(startAt, durationMinutes) {
     const start = new Date(startAt);
     const end = new Date(start.getTime() + (Number(durationMinutes) || 0) * 60000);
     const time = (value) =>
       formatDate(value, { hour: "2-digit", minute: "2-digit" });
-    return `das ${time(start)} às ${time(end)}`;
+    return `${time(start)} → ${time(end)}`;
   }
 
   function courtSlotDuration(court) {
@@ -471,7 +469,7 @@
             const selected =
               state.selectedSlot?.startAt === slot.startAt &&
               state.selectedSlot?.courtId === slot.courtId;
-            return `<button class="time-slot${selected ? " selected" : ""}" type="button" data-slot-start="${slot.startAt}" data-slot-court="${escapeHTML(slot.courtId)}"><strong>${escapeHTML(slotTimeRange(slot.startAt, slot.slotDuration))}</strong><small>${escapeHTML(slot.courtName)}</small></button>`;
+            return `<button class="time-slot${selected ? " selected" : ""}" type="button" data-slot-start="${slot.startAt}" data-slot-court="${escapeHTML(slot.courtId)}"><strong>${escapeHTML(slotTimeRange(slot.startAt, slot.slotDuration))}</strong><span class="slot-duration">${escapeHTML(formatDuration(slot.slotDuration))}</span><small>${escapeHTML(slot.courtName)}</small></button>`;
           })
           .join("")
       : emptyState(
@@ -498,8 +496,8 @@
 
   function updateSelection() {
     const selected = state.selectedSlot;
-    $("[data-empty-selection]").classList.toggle("hidden", Boolean(selected));
-    $("[data-selection-content]").classList.toggle("hidden", !selected);
+    const panel = $("[data-inline-selection]");
+    if (panel) panel.classList.toggle("hidden", !selected);
     if (!selected) return;
     const dateLabel = formatDate(selected.startAt, {
       weekday: "short",

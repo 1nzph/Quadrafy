@@ -2603,6 +2603,9 @@ em {
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
+.match-grid--narrow {
+  grid-template-columns: repeat(2, 1fr);
+}
 .match-card {
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -4679,6 +4682,13 @@ button.match-player-row:focus-visible strong {
   background: var(--coral-dark);
   border-color: var(--coral-dark);
 }
+.match-card-actions .match-edit-btn {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.match-card-actions .match-edit-btn:hover {
+  background: rgba(16, 25, 46, 0.06);
+}
 
 .match-chat-list {
   display: grid;
@@ -5267,6 +5277,9 @@ button.match-player-row:focus-visible strong {
     grid-template-columns: 1fr;
     max-width: 100%;
     margin-inline: 0;
+  }
+  .match-grid--narrow {
+    grid-template-columns: 1fr;
   }
   .profile-header {
     grid-template-columns: auto 1fr;

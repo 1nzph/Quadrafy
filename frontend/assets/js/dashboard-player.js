@@ -254,6 +254,7 @@
     scrollTo({ top: 0, behavior: "smooth" });
     if (name === "bookings") {
       loadBookings();
+      loadMatches();
       if (state.bookingSegment === "history") loadHistory();
     }
     if (name === "matches") loadMatches();
@@ -798,53 +799,29 @@
 
   function renderBookings() {
     const now = Date.now();
-    const upcoming = state.bookings.filter(
-      (booking) =>
-        booking.status !== "cancelled" &&
-        new Date(booking.startAt).getTime() >= now,
-    );
+    const myId = state.session?.user?.id;
+    const upcoming = state.matches
+      .filter(
+        (match) =>
+          (match.participantIds ?? []).includes(myId) &&
+          new Date(match.startAt).getTime() >= now,
+      )
+      .sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
     const counter = $("[data-booking-upcoming-count]");
     counter.textContent = String(upcoming.length);
     counter.classList.toggle("hidden", upcoming.length === 0);
     const navCounter = $("[data-booking-count]");
     navCounter.textContent = String(upcoming.length);
     navCounter.classList.toggle("hidden", upcoming.length === 0);
-    $("[data-booking-list]").innerHTML = upcoming.length
-      ? upcoming
-          .sort((a, b) => new Date(a.startAt) - new Date(b.startAt))
-          .map((booking) => {
-            const day = formatDate(booking.startAt, { day: "2-digit" });
-            const month = formatDate(booking.startAt, { month: "short" })
-              .replace(".", "")
-              .toUpperCase();
-            const time = formatDate(booking.startAt, {
-              day: "2-digit",
-              month: "short",
-              hour: "2-digit",
-              minute: "2-digit",
-            });
-            const status = bookingStatusLabel(booking.status);
-            const spotsLabel =
-              booking.openSpots > 0
-                ? `${booking.openSpots} vagas abertas`
-                : "Completo";
-            return `<article class="booking-item card-hover" data-booking-id="${escapeHTML(booking.id)}" tabindex="0" role="button" aria-label="Ver detalhes do jogo em ${escapeHTML(booking.clubName)}"><div class="booking-date"><small>${escapeHTML(month)}</small><strong>${escapeHTML(day)}</strong></div><div class="booking-info"><h3>${escapeHTML(booking.clubName)}</h3><p>${escapeHTML(booking.courtName)} · ${escapeHTML(time)} · ${escapeHTML(spotsLabel)}</p></div><div class="booking-actions"><span class="status-badge">${escapeHTML(status)}</span><span aria-hidden="true">→</span></div></article>`;
-          })
-          .join("")
+    const grid = $("[data-booking-match-grid]");
+    if (!grid) return;
+    grid.innerHTML = upcoming.length
+      ? upcoming.map((match) => matchCard(match, { editable: true })).join("")
       : emptyState(
           "Nenhum jogo futuro.",
           "Escolha um clube e crie seu primeiro jogo.",
         );
-    $$("[data-booking-id]", $("[data-booking-list]")).forEach((item) => {
-      const open = () => openBookingDetail(item.dataset.bookingId);
-      item.addEventListener("click", open);
-      item.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          open();
-        }
-      });
-    });
+    wireMatchCards(grid);
   }
 
   async function loadBookings() {
@@ -854,10 +831,8 @@
       renderBookings();
       renderProfile();
     } catch (error) {
-      $("[data-booking-list]").innerHTML = emptyState(
-        "Não foi possível carregar os jogos.",
-        error.message,
-      );
+      const bGrid = $("[data-booking-match-grid]");
+      if (bGrid) bGrid.innerHTML = emptyState("Não foi possível carregar os jogos.", error.message);
     }
   }
 
@@ -872,7 +847,7 @@
           item.classList.toggle("active", item === button),
         );
         const isHistory = state.bookingSegment === "history";
-        $("[data-booking-list]").classList.toggle("hidden", isHistory);
+        $("[data-booking-match-grid]").classList.toggle("hidden", isHistory);
         $("[data-history-grid]").classList.toggle("hidden", !isHistory);
         if (isHistory) loadHistory();
         else renderBookings();
@@ -1221,7 +1196,7 @@
     return true;
   }
 
-  function matchCard(match) {
+  function matchCard(match, { editable = false } = {}) {
     const unread = state.unreadByMatch.get(match.id) || 0;
     const isParticipant = (match.participantIds ?? []).includes(
       state.session?.user?.id,
@@ -1236,6 +1211,14 @@
     const joinBtn = isParticipant
       ? ""
       : `<button class="button match-join-btn${joinBlocked ? " match-join-blocked" : ""}" data-match-quick-join ${joinBlocked ? 'disabled title="Você não se enquadra nos requisitos deste jogo"' : ""} type="button">Participe</button>`;
+    const editBtn =
+      editable && match.isOrganizer
+        ? `<button class="button button-outline match-edit-btn" data-match-edit type="button">Editar</button>`
+        : "";
+    const actionsHtml =
+      joinBtn || editBtn
+        ? `<div class="match-card-actions">${joinBtn}${editBtn}</div>`
+        : "";
     const unreadBadge = unread
       ? `&nbsp;<span class="nav-count" aria-label="${unread} mensagens não lidas">${unread}</span>`
       : "";
@@ -1259,7 +1242,7 @@
         </div>
         <button class="match-detail-btn" data-match-open-detail type="button">Ver detalhes${unreadBadge}</button>
       </div>
-      ${joinBtn ? `<div class="match-card-actions">${joinBtn}</div>` : ""}
+      ${actionsHtml}
     </article>`;
   }
 
@@ -1286,6 +1269,13 @@
         openDetail.addEventListener("click", (e) => {
           e.stopPropagation();
           open();
+        });
+      }
+      const editBtn = $("[data-match-edit]", card);
+      if (editBtn) {
+        editBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openBookingDetail(matchId);
         });
       }
     });
@@ -1383,6 +1373,7 @@
       state.matches = data.matches;
       renderPendingResultsBadge(data.pendingResults);
       renderMatches();
+      renderBookings();
       renderProfile();
       refreshUnreadCounts();
     } catch (error) {

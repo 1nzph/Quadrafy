@@ -142,7 +142,7 @@
   }
 
   function dateOptions() {
-    return Array.from({ length: 6 }, (_, index) => {
+    return Array.from({ length: 14 }, (_, index) => {
       const date = new Date();
       date.setHours(12, 0, 0, 0);
       date.setDate(date.getDate() + index);
@@ -280,10 +280,6 @@
   }
 
   function clubCard(club) {
-    const minimum =
-      club.minimumPrice == null
-        ? "Preço não informado"
-        : `A partir de ${formatCurrency(club.minimumPrice)}`;
     const photoUrl = safePhotoUrl(club.photoUrl);
     const artwork = photoUrl
       ? `<img class="club-cover-photo" src="${escapeHTML(photoUrl)}" alt="${escapeHTML(club.name)}" />`
@@ -293,7 +289,7 @@
       <div class="club-card-body">
         <div class="club-card-title"><div><h3>${escapeHTML(club.name)}</h3><p class="club-location">${escapeHTML(club.address || "Endereço ainda não informado")}</p></div></div>
         <div class="club-features"><span>${icon("court")} ${club.courtCount} ${club.courtCount === 1 ? "quadra" : "quadras"}</span></div>
-        <div class="club-card-footer"><div><small>Referência</small><strong>${escapeHTML(minimum)}</strong></div><button type="button" tabindex="-1">Ver horários →</button></div>
+        <div class="club-card-footer"><button type="button" tabindex="-1">Ver horários →</button></div>
       </div>
     </article>`;
   }
@@ -370,8 +366,8 @@
     strip.innerHTML = dates
       .map((date) => {
         const key = localDateKey(date);
-        const weekday = formatDate(date, { weekday: "short" }).replace(".", "");
-        return `<button class="${key === state.selectedDate ? "active" : ""}" type="button" data-booking-date="${key}"><small>${escapeHTML(weekday.toUpperCase())}</small><strong>${date.getDate()}</strong></button>`;
+        const label = `${date.getDate()}/${date.getMonth() + 1}`;
+        return `<button class="${key === state.selectedDate ? "active" : ""}" type="button" data-booking-date="${key}"><strong>${label}</strong></button>`;
       })
       .join("");
     $$("[data-booking-date]", strip).forEach((button) =>
@@ -430,6 +426,20 @@
       );
     } else renderSlots();
     updateSelection();
+    // Wire segment tabs (Horários / Jogos em aberto)
+    $$("[data-club-segment]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const seg = button.dataset.clubSegment;
+        $$("[data-club-segment]").forEach((b) =>
+          b.classList.toggle("active", b === button),
+        );
+        const isMatches = seg === "matches";
+        $("[data-club-slots-view]")?.classList.toggle("hidden", isMatches);
+        $("[data-club-matches-view]")?.classList.toggle("hidden", !isMatches);
+        $("[data-inline-selection]")?.classList.toggle("hidden", isMatches || !state.selectedSlot);
+        if (isMatches) renderClubMatches();
+      }),
+    );
   }
 
   function renderSlots() {
@@ -467,16 +477,6 @@
       ? slots
           .map((slot) => {
             if (!slot.available) {
-              const match = state.matches.find(
-                (m) =>
-                  m.startAt === slot.startAt &&
-                  m.courtId === slot.courtId &&
-                  m.clubId === clubId,
-              );
-              if (match) {
-                const catShort = formatLevelCategoriesShort(match);
-                return `<button class="time-slot time-slot--has-match" type="button" data-open-slot-match="${escapeHTML(match.id)}" title="Jogo aberto — clique para ver"><strong>${escapeHTML(slotTimeRange(slot.startAt, slot.slotDuration))}</strong><span class="slot-duration">${escapeHTML(formatDuration(slot.slotDuration))}</span><small>Jogo aberto · ${escapeHTML(catShort)}</small></button>`;
-              }
               return `<div class="time-slot time-slot--occupied" aria-hidden="true"><strong>${escapeHTML(slotTimeRange(slot.startAt, slot.slotDuration))}</strong><span class="slot-duration">${escapeHTML(formatDuration(slot.slotDuration))}</span><small>Ocupado</small></div>`;
             }
             const selected =
@@ -489,11 +489,6 @@
           "Nenhum horário disponível para esta quadra nesta data.",
           "Tente outra data ou quadra.",
         );
-    $$("[data-open-slot-match]", grid).forEach((button) =>
-      button.addEventListener("click", () =>
-        openMatch(button.dataset.openSlotMatch),
-      ),
-    );
     $$("[data-slot-start]", grid).forEach((button) =>
       button.addEventListener("click", () => {
         const court = state.selectedClub.club.courts.find(
@@ -510,6 +505,20 @@
         updateSelection();
       }),
     );
+  }
+
+  function renderClubMatches() {
+    const grid = $("[data-club-matches-grid]");
+    if (!grid) return;
+    const clubId = state.selectedClub?.club?.id;
+    const matches = state.matches.filter((m) => m.clubId === clubId);
+    grid.innerHTML = matches.length
+      ? matches.map(matchCard).join("")
+      : emptyState(
+          "Nenhum jogo em aberto neste clube.",
+          "Crie um jogo para jogar aqui.",
+        );
+    wireMatchCards(grid);
   }
 
   function updateSelection() {

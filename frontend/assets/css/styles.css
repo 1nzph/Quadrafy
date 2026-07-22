@@ -2219,14 +2219,23 @@ em {
    levemente seu peso visual (sem comprometer a legibilidade) para dar
    espaço à seleção de quadra, a decisão mais importante aqui. */
 .date-strip {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  display: flex;
   gap: 6px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
   margin: 25px 0;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+}
+.date-strip::-webkit-scrollbar {
+  display: none;
 }
 .date-strip button {
   display: flex;
-  min-height: 56px;
+  flex-shrink: 0;
+  width: 56px;
+  min-height: 52px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -2234,22 +2243,15 @@ em {
   border-radius: 7px;
   background: transparent;
   cursor: pointer;
-}
-.date-strip small {
-  color: var(--ink-soft);
-  font: 500 7px/1 var(--mono);
+  scroll-snap-align: start;
 }
 .date-strip strong {
-  margin-top: 6px;
-  font: 600 15px/1 var(--mono);
+  font: 600 14px/1 var(--mono);
 }
 .date-strip button.active {
   border-color: var(--coral);
   background: var(--coral);
   color: #fff;
-}
-.date-strip button.active small {
-  color: rgba(255, 255, 255, 0.7);
 }
 /* TASK-98 — a quadra é a decisão mais importante da tela (não existe
    opção "Todas"), então o seletor ganha mais destaque: botões maiores e
@@ -5253,9 +5255,7 @@ button.match-player-row:focus-visible strong {
     flex-direction: column;
   }
   .date-strip {
-    grid-template-columns: repeat(6, 58px);
-    overflow: auto;
-    padding-bottom: 5px;
+    margin: 16px 0;
   }
   .time-grid {
     grid-template-columns: repeat(3, 1fr);

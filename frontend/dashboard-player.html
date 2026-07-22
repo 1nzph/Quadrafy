@@ -115,9 +115,6 @@
             >
               Todos
             </button>
-            <button class="filter-button" type="button" data-filter="open">
-              Aberta agora
-            </button>
             <button class="filter-button filter-more" type="button">
               <span data-icon="filter"></span> Mais filtros
             </button>
@@ -145,27 +142,36 @@
           <div class="club-detail-hero" data-club-detail></div>
           <div class="booking-layout">
             <section class="booking-panel">
-              <div class="panel-heading">
-                <div>
-                  <p class="eyebrow dark">Disponibilidade</p>
-                  <h2>Escolha seu horário</h2>
-                </div>
-                <div class="slot-legend">
-                  <span><i class="free"></i>Livre</span
-                  ><span><i class="busy"></i>Ocupado</span>
-                </div>
+              <div class="segment-tabs" data-club-detail-segments>
+                <button class="active" type="button" data-club-segment="slots">Horários</button>
+                <button type="button" data-club-segment="matches">Jogos em aberto</button>
               </div>
-              <div
-                class="date-strip"
-                data-date-strip
-                aria-label="Escolha uma data"
-              ></div>
-              <div
-                class="court-selector"
-                data-court-selector
-                aria-label="Filtrar por quadra"
-              ></div>
-              <div class="time-grid" data-time-grid></div>
+              <div data-club-slots-view>
+                <div class="panel-heading">
+                  <div>
+                    <p class="eyebrow dark">Disponibilidade</p>
+                    <h2>Escolha seu horário</h2>
+                  </div>
+                  <div class="slot-legend">
+                    <span><i class="free"></i>Livre</span
+                    ><span><i class="busy"></i>Ocupado</span>
+                  </div>
+                </div>
+                <div
+                  class="date-strip"
+                  data-date-strip
+                  aria-label="Escolha uma data"
+                ></div>
+                <div
+                  class="court-selector"
+                  data-court-selector
+                  aria-label="Filtrar por quadra"
+                ></div>
+                <div class="time-grid" data-time-grid></div>
+              </div>
+              <div class="hidden" data-club-matches-view>
+                <div class="match-grid" data-club-matches-grid></div>
+              </div>
             </section>
             <div class="inline-selection hidden" data-inline-selection>
               <p class="micro-label">Sua seleção</p>

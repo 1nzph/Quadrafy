@@ -29,7 +29,7 @@
     wallet:
       '<path d="M4 6h14a2 2 0 0 1 2 2v11H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4Z"/>',
     court:
-      '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M12 4v16M3 12h18M7 4v16M17 4v16"/>',
+      '<rect x="2" y="5" width="20" height="14" rx="1"/><path d="M2 12h20M7 5v14M17 5v14"/>',
     chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
     check: '<path d="m5 12 4 4L19 6"/>',
   };

@@ -401,7 +401,7 @@
     $("[data-club-detail]").innerHTML =
       `<div class="detail-art">${detailArtwork}</div><div class="detail-info"><h1>${escapeHTML(club.name)}</h1><p>${escapeHTML(club.address || "Endereço ainda não informado")}</p><div class="detail-tags">${courtTags}</div></div>`;
     // Update open-matches badge on segment tab
-    const clubMatchCount = state.matches.filter((m) => m.clubId === club.id).length;
+    const clubMatchCount = state.matches.filter((m) => m.clubId === club.id && !m.isFull).length;
     const matchesBadge = $("[data-club-matches-badge]");
     if (matchesBadge) {
       matchesBadge.textContent = clubMatchCount || "";
@@ -519,7 +519,7 @@
     const grid = $("[data-club-matches-grid]");
     if (!grid) return;
     const clubId = state.selectedClub?.club?.id;
-    const matches = state.matches.filter((m) => m.clubId === clubId);
+    const matches = state.matches.filter((m) => m.clubId === clubId && !m.isFull);
     grid.innerHTML = matches.length
       ? matches.map(matchCard).join("")
       : emptyState(
@@ -821,6 +821,7 @@
       .filter(
         (match) =>
           (match.participantIds ?? []).includes(myId) &&
+          !match.isFull &&
           new Date(match.startAt).getTime() >= now,
       )
       .sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
@@ -837,6 +838,27 @@
       : emptyState(
           "Nenhum jogo futuro.",
           "Escolha um clube e crie seu primeiro jogo.",
+        );
+    wireMatchCards(grid);
+  }
+
+  function renderPendingResults() {
+    const myId = state.session?.user?.id;
+    const pending = state.matches
+      .filter((match) => (match.participantIds ?? []).includes(myId) && match.isFull)
+      .sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
+    const badge = $("[data-pending-results-count]");
+    if (badge) {
+      badge.textContent = pending.length ? String(pending.length) : "";
+      badge.classList.toggle("hidden", pending.length === 0);
+    }
+    const grid = $("[data-pending-results-grid]");
+    if (!grid) return;
+    grid.innerHTML = pending.length
+      ? pending.map(matchCard).join("")
+      : emptyState(
+          "Nenhum jogo aguardando resultado.",
+          "Quando os 4 jogadores se juntarem, o jogo aparece aqui.",
         );
     wireMatchCards(grid);
   }
@@ -863,10 +885,11 @@
         $$("[data-segment]").forEach((item) =>
           item.classList.toggle("active", item === button),
         );
-        const isHistory = state.bookingSegment === "history";
-        $("[data-booking-match-grid]").classList.toggle("hidden", isHistory);
-        $("[data-history-grid]").classList.toggle("hidden", !isHistory);
-        if (isHistory) loadHistory();
+        $("[data-booking-match-grid]").classList.toggle("hidden", state.bookingSegment !== "upcoming");
+        $("[data-pending-results-grid]").classList.toggle("hidden", state.bookingSegment !== "results");
+        $("[data-history-grid]").classList.toggle("hidden", state.bookingSegment !== "history");
+        if (state.bookingSegment === "history") loadHistory();
+        else if (state.bookingSegment === "results") renderPendingResults();
         else renderBookings();
       }),
     );
@@ -1403,6 +1426,7 @@
       renderPendingResultsBadge(data.pendingResults);
       renderMatches();
       renderBookings();
+      renderPendingResults();
       renderProfile();
       refreshUnreadCounts();
     } catch (error) {
@@ -1680,8 +1704,8 @@
       ${match.isOrganizer ? '<p class="match-organizer-note">Como organizador, use o seletor de cada jogador para trocar as posições.</p>' : ""}
       <div class="match-player-list">${matchPlayerSlots(match, { interactive: true })}</div>
       ${participant ? matchResultSection(match) : ""}
-      ${participant ? `<button class="button button-primary button-block match-chat-toggle" type="button" data-match-chat-toggle>Chat${unreadBadge}</button>` : ""}
-      ${participant && !match.isOrganizer ? '<button class="button button-outline button-block" type="button" data-match-leave>Sair do jogo</button>' : ""}`;
+      ${participant && !matchStarted(match) ? `<button class="button button-primary button-block match-chat-toggle" type="button" data-match-chat-toggle>Chat${unreadBadge}</button>` : ""}
+      ${participant && !match.isOrganizer && !matchStarted(match) ? '<button class="button button-outline button-block" type="button" data-match-leave>Sair do jogo</button>' : ""}`;
 
     const joinButton = $("[data-match-detail-join]");
     joinButton.classList.add("hidden");
@@ -1752,7 +1776,7 @@
 
   async function loadCurrentMatchResult(match) {
     state.currentMatchResult = null;
-    if (!match?.isFull || !matchParticipant(match)) return;
+    if (!match?.isFull) return;
     try {
       const { result } = await apiRequest(
         `/api/v1/matches/${encodeURIComponent(match.id)}/result`,
@@ -1952,11 +1976,11 @@
       const modal = $("[data-match-detail-modal]");
       openAccessibleModal(
         modal,
-        matchParticipant(match)
+        matchParticipant(match) && !matchStarted(match)
           ? "[data-match-chat-toggle]"
-          : "[data-join-position]",
+          : ".modal-close",
       );
-      if (matchParticipant(match)) {
+      if (matchParticipant(match) && !matchStarted(match)) {
         await loadChatMessages(true);
         startChatPolling();
       }

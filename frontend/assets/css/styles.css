@@ -2590,8 +2590,18 @@ em {
   font: 600 8px/1 var(--mono);
 }
 .match-date {
-  color: var(--ink-soft);
-  font: 600 9px/1 var(--mono);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.match-date-text {
+  color: var(--ink);
+  font: 700 15px/1.2 var(--mono);
+  letter-spacing: -0.01em;
+}
+.match-date-duration {
+  color: var(--coral);
+  font: 700 12px/1 var(--mono);
 }
 .match-card h3 {
   margin: 0 0 7px;
@@ -4568,6 +4578,28 @@ button.match-player-row:focus-visible strong {
 }
 .match-card > .button {
   margin: 14px 18px 18px;
+}
+.match-card-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding: 14px 18px 18px;
+  border-top: 1px solid var(--line);
+}
+.match-card-actions .button {
+  flex: 1;
+  max-width: 160px;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+.match-card-actions .match-join-btn {
+  background: var(--coral);
+  color: #fff;
+  border-color: var(--coral);
+}
+.match-card-actions .match-join-btn:hover {
+  background: var(--coral-dark);
+  border-color: var(--coral-dark);
 }
 
 .match-chat-list {

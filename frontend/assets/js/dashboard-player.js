@@ -869,6 +869,23 @@
       : "Todas as categorias";
   }
 
+  const LEVEL_CATEGORY_SHORT = {
+    Iniciante: "7ª",
+    "Iniciante Intermediário": "6ª",
+    Intermediário: "5ª",
+    "Intermediário Avançado": "4ª",
+    Avançado: "3ª",
+    "Avançado Elevado": "2ª",
+    Elite: "Open",
+  };
+
+  function formatLevelCategoriesShort(record) {
+    if (!record.levelCategories?.length) return "Todas";
+    return record.levelCategories
+      .map((cat) => LEVEL_CATEGORY_SHORT[cat] || cat)
+      .join(", ");
+  }
+
   function renderBookingDetail(booking) {
     const modal = $("[data-booking-detail-modal]");
     const startTime = new Date(booking.startAt).getTime();
@@ -1164,21 +1181,23 @@
   function matchCard(match) {
     const unread = state.unreadByMatch.get(match.id) || 0;
     const status = matchStatus(match);
-    const gameType = match.gameType || match.type || "Jogo aberto";
     return `<article class="match-card card-hover" data-match-id="${escapeHTML(match.id)}" tabindex="0" role="button" aria-label="Ver detalhes do jogo em ${escapeHTML(match.clubName)}">
-      <div class="match-top"><span class="match-date">${escapeHTML(matchDateLabel(match.startAt))} · ${escapeHTML(formatDuration(match.slotDuration))}</span><span class="match-card-badges">${genderCategoryBadge(match)}<span class="status-badge">Quadra reservada</span></span></div>
+      <div class="match-top"><span class="match-date"><span class="match-date-text">${escapeHTML(matchDateLabel(match.startAt))}</span><span class="match-date-duration">${escapeHTML(formatDuration(match.slotDuration))}</span></span><span class="match-card-badges">${genderCategoryBadge(match)}<span class="status-badge">Quadra reservada</span></span></div>
       <h3>${escapeHTML(match.clubName)}</h3>
       <span class="match-location">${escapeHTML(matchLocation(match))}</span>
       <div class="match-player-list" aria-label="Jogadores e vagas">${matchPlayerSlots(match)}</div>
-      <div class="match-detail"><div><small>${escapeHTML(gameType)}</small><strong>Categorias: ${escapeHTML(formatLevelCategories(match))}</strong></div><div><small>Status</small><strong>${escapeHTML(status)}</strong></div></div>
-      <div class="match-players"><span>Ver detalhes antes de entrar</span>${unread ? `<span class="nav-count" aria-label="${unread} mensagens não lidas">${unread}</span>` : ""}</div>
-      <span class="button button-outline button-block" aria-hidden="true">Ver detalhes</span>
+      <div class="match-detail"><div><small>Categoria</small><strong>${escapeHTML(formatLevelCategoriesShort(match))}</strong></div><div><small>Status</small><strong>${escapeHTML(status)}</strong></div></div>
+      <div class="match-card-actions">
+        <button class="button match-join-btn" data-match-quick-join type="button">Participe</button>
+        <button class="button button-outline match-detail-btn" data-match-open-detail type="button">Ver detalhes${unread ? `&nbsp;<span class="nav-count" aria-label="${unread} mensagens não lidas">${unread}</span>` : ""}</button>
+      </div>
     </article>`;
   }
 
   function wireMatchCards(grid) {
     $$("[data-match-id]", grid).forEach((card) => {
-      const open = () => openMatch(card.dataset.matchId);
+      const matchId = card.dataset.matchId;
+      const open = () => openMatch(matchId);
       card.addEventListener("click", open);
       card.addEventListener("keydown", (event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -1186,6 +1205,20 @@
           open();
         }
       });
+      const quickJoin = $("[data-match-quick-join]", card);
+      if (quickJoin) {
+        quickJoin.addEventListener("click", (e) => {
+          e.stopPropagation();
+          joinMatchDirect(matchId, quickJoin);
+        });
+      }
+      const openDetail = $("[data-match-open-detail]", card);
+      if (openDetail) {
+        openDetail.addEventListener("click", (e) => {
+          e.stopPropagation();
+          open();
+        });
+      }
     });
   }
 
@@ -1811,6 +1844,42 @@
       if (error.code === "match_position_taken") {
         await openMatch(state.currentMatch.id);
       }
+    } finally {
+      setBusy(button, false);
+    }
+  }
+
+  async function joinMatchDirect(matchId, button) {
+    const match = state.matches.find((m) => m.id === matchId);
+    if (!match) {
+      openMatch(matchId);
+      return;
+    }
+    const teams = normalizedMatchTeams(match);
+    let targetTeam, targetSlot;
+    outer: for (const team of ["team1", "team2"]) {
+      for (let slot = 0; slot < teams[team].length; slot++) {
+        if (!teams[team][slot]) {
+          targetTeam = team;
+          targetSlot = slot;
+          break outer;
+        }
+      }
+    }
+    if (!targetTeam) {
+      showToast("Não há vagas disponíveis nesta partida.");
+      return;
+    }
+    setBusy(button, true, "Entrando…");
+    try {
+      await apiRequest(
+        `/api/v1/matches/${encodeURIComponent(matchId)}/join`,
+        { method: "POST", body: { team: targetTeam, slot: targetSlot } },
+      );
+      await Promise.all([loadMatches(), loadBookings()]);
+      showToast("Você entrou no jogo. O chat já está disponível.");
+    } catch (error) {
+      showToast(error.message);
     } finally {
       setBusy(button, false);
     }

@@ -943,7 +943,9 @@
     warning.textContent = warningText;
     warning.classList.toggle("hidden", !warningText);
     $("[data-booking-detail-save]").disabled = !editable;
+    $("[data-booking-detail-save]").classList.toggle("hidden", !isOwner);
     $("[data-booking-cancel]").disabled = !canCancel;
+    $("[data-booking-cancel]").classList.toggle("hidden", !isOwner);
     openAccessibleModal(modal, "[data-booking-detail-categories-all]");
   }
 

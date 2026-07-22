@@ -257,17 +257,45 @@
             data-match-level-banner
             aria-live="polite"
           ></div>
-          <div class="match-gender-filter">
-            <label class="input-group">
-              <span>Categoria</span>
-              <select data-match-gender-filter aria-label="Filtrar jogos por categoria de gênero">
-                <option value="" selected>Todas as partidas</option>
-                <option value="all">Todos os jogadores</option>
-                <option value="women_only">Apenas Mulheres</option>
-                <option value="men_only">Apenas Homens</option>
-                <option value="mixed">Misto</option>
-              </select>
-            </label>
+          <div class="match-filters-bar">
+            <button class="button button-outline match-filter-toggle" data-match-filter-toggle type="button">
+              Filtrar <span class="match-filter-badge hidden" data-match-filter-badge></span>
+            </button>
+            <div class="match-filter-panel hidden" data-match-filter-panel>
+              <div class="match-filter-fields">
+                <label class="input-group">
+                  <span>Data</span>
+                  <input type="date" data-filter-date />
+                </label>
+                <label class="input-group">
+                  <span>Categoria</span>
+                  <select data-filter-category>
+                    <option value="">Todas as categorias</option>
+                    <option value="Iniciante">7ª — Iniciante</option>
+                    <option value="Iniciante Intermediário">6ª — Iniciante Interm.</option>
+                    <option value="Intermediário">5ª — Intermediário</option>
+                    <option value="Intermediário Avançado">4ª — Interm. Avançado</option>
+                    <option value="Avançado">3ª — Avançado</option>
+                    <option value="Avançado Elevado">2ª — Avançado Elevado</option>
+                    <option value="Elite">Open — Elite</option>
+                  </select>
+                </label>
+                <label class="input-group">
+                  <span>Gênero</span>
+                  <select data-filter-gender>
+                    <option value="">Todos</option>
+                    <option value="all">Todos os jogadores</option>
+                    <option value="women_only">Apenas Mulheres</option>
+                    <option value="men_only">Apenas Homens</option>
+                    <option value="mixed">Misto</option>
+                  </select>
+                </label>
+              </div>
+              <div class="match-filter-actions">
+                <button class="match-filter-clear-btn" data-match-filter-clear type="button">Limpar filtros</button>
+                <button class="button" data-match-filter-apply type="button">Aplicar</button>
+              </div>
+            </div>
           </div>
           <section
             class="my-matches-section hidden"

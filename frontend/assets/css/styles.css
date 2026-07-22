@@ -2347,6 +2347,37 @@ em {
   cursor: not-allowed;
   text-decoration: line-through;
 }
+.time-slot--occupied {
+  border-color: transparent;
+  background: #ece9e3;
+  color: #aaa89f;
+  cursor: default;
+  pointer-events: none;
+}
+.time-slot--occupied strong,
+.time-slot--occupied small {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+.time-slot--has-match {
+  border-color: var(--coral);
+  background: rgba(255, 107, 74, 0.06);
+}
+.time-slot--has-match:hover {
+  background: rgba(255, 107, 74, 0.14);
+  transform: translateY(-2px);
+}
+.time-slot--has-match small {
+  color: var(--coral-dark);
+  font-weight: 700;
+}
+.match-join-blocked {
+  background: #ccc !important;
+  border-color: #ccc !important;
+  color: #888 !important;
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
 .inline-selection > .micro-label {
   color: var(--ink-soft);
   margin-bottom: 12px;
@@ -6236,15 +6267,71 @@ button.match-player-row:focus-visible strong {
   }
 }
 
-/* TASKS-11 — categoria de gênero */
-.match-gender-filter {
+/* Match filter bar */
+.match-filters-bar {
+  position: relative;
   display: flex;
+  align-items: flex-start;
   justify-content: flex-end;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
-.match-gender-filter .input-group {
+.match-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+}
+.match-filter-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--coral);
+  color: #fff;
+  font: 700 10px/1 var(--mono);
+}
+.match-filter-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  width: min(380px, 92vw);
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+.match-filter-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  margin-bottom: 14px;
+}
+.match-filter-fields .input-group:first-child {
+  grid-column: 1 / -1;
+}
+.match-filter-fields .input-group {
   margin: 0;
-  min-width: 220px;
+}
+.match-filter-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.match-filter-clear-btn {
+  background: none;
+  border: none;
+  padding: 6px 0;
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: 13px;
+  text-decoration: underline;
 }
 .match-card-badges {
   display: inline-flex;

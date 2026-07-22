@@ -50,6 +50,7 @@
     achievements: [],
     achievementCatalog: [],
     super8Open: [],
+    matchFilters: { date: "", category: "", gender: "" },
   };
 
   const emptyState = (title, text) =>
@@ -435,8 +436,9 @@
     const availability = state.selectedClub.availability.filter(
       (court) => court.courtId === state.selectedCourt,
     );
-    // TASK-15: exibir apenas horários realmente disponíveis (ocultar os já
-    // reservados e os que já passaram, em vez de mostrá-los desabilitados).
+    const clubId = state.selectedClub.club.id;
+    // Show ALL future slots — available and occupied — so players can see
+    // which slots have open matches to join.
     const slots = availability
       .flatMap((court) =>
         court.slots.map((slot) => ({
@@ -446,16 +448,13 @@
           slotDuration: court.slotDurationMinutes,
         })),
       )
-      .filter(
-        (slot) =>
-          slot.available && new Date(slot.startAt).getTime() > Date.now(),
-      );
-    // Se o horário selecionado sumiu da lista (ex.: reservado por outro
-    // jogador), limpar a seleção para não confirmar um horário inválido.
+      .filter((slot) => new Date(slot.startAt).getTime() > Date.now());
+    // If the previously selected slot is no longer available, clear it.
     if (
       state.selectedSlot &&
       !slots.some(
         (slot) =>
+          slot.available &&
           slot.startAt === state.selectedSlot.startAt &&
           slot.courtId === state.selectedSlot.courtId,
       )
@@ -466,6 +465,19 @@
     grid.innerHTML = slots.length
       ? slots
           .map((slot) => {
+            if (!slot.available) {
+              const match = state.matches.find(
+                (m) =>
+                  m.startAt === slot.startAt &&
+                  m.courtId === slot.courtId &&
+                  m.clubId === clubId,
+              );
+              if (match) {
+                const catShort = formatLevelCategoriesShort(match);
+                return `<button class="time-slot time-slot--has-match" type="button" data-open-slot-match="${escapeHTML(match.id)}" title="Jogo aberto — clique para ver"><strong>${escapeHTML(slotTimeRange(slot.startAt, slot.slotDuration))}</strong><span class="slot-duration">${escapeHTML(formatDuration(slot.slotDuration))}</span><small>Jogo aberto · ${escapeHTML(catShort)}</small></button>`;
+              }
+              return `<div class="time-slot time-slot--occupied" aria-hidden="true"><strong>${escapeHTML(slotTimeRange(slot.startAt, slot.slotDuration))}</strong><span class="slot-duration">${escapeHTML(formatDuration(slot.slotDuration))}</span><small>Ocupado</small></div>`;
+            }
             const selected =
               state.selectedSlot?.startAt === slot.startAt &&
               state.selectedSlot?.courtId === slot.courtId;
@@ -476,7 +488,12 @@
           "Nenhum horário disponível para esta quadra nesta data.",
           "Tente outra data ou quadra.",
         );
-    $$(".time-slot:not(:disabled)", grid).forEach((button) =>
+    $$("[data-open-slot-match]", grid).forEach((button) =>
+      button.addEventListener("click", () =>
+        openMatch(button.dataset.openSlotMatch),
+      ),
+    );
+    $$("[data-slot-start]", grid).forEach((button) =>
       button.addEventListener("click", () => {
         const court = state.selectedClub.club.courts.find(
           (item) => item.id === button.dataset.slotCourt,
@@ -1178,9 +1195,30 @@
       : "";
   }
 
+  function playerCanJoin(match) {
+    const profile = state.session?.user?.profile;
+    if (!profile) return true;
+    if (match.levelCategories?.length) {
+      const myCat = profile.levelCategory;
+      if (!myCat || !match.levelCategories.includes(myCat)) return false;
+    }
+    const gc = match.genderCategory ?? "all";
+    if (gc === "women_only" && profile.gender !== "female") return false;
+    if (gc === "men_only" && profile.gender !== "male") return false;
+    return true;
+  }
+
   function matchCard(match) {
     const unread = state.unreadByMatch.get(match.id) || 0;
     const status = matchStatus(match);
+    const isParticipant = (match.participantIds ?? []).includes(
+      state.session?.user?.id,
+    );
+    const canJoin = !isParticipant && playerCanJoin(match);
+    const joinBlocked = !isParticipant && !canJoin;
+    const joinBtn = isParticipant
+      ? ""
+      : `<button class="button match-join-btn${joinBlocked ? " match-join-blocked" : ""}" data-match-quick-join ${joinBlocked ? 'disabled title="Você não se enquadra nos requisitos deste jogo"' : ""} type="button">Participe</button>`;
     return `<article class="match-card card-hover" data-match-id="${escapeHTML(match.id)}" tabindex="0" role="button" aria-label="Ver detalhes do jogo em ${escapeHTML(match.clubName)}">
       <div class="match-top"><span class="match-date"><span class="match-date-text">${escapeHTML(matchDateLabel(match.startAt))}</span><span class="match-date-duration">${escapeHTML(formatDuration(match.slotDuration))}</span></span><span class="match-card-badges">${genderCategoryBadge(match)}<span class="status-badge">Quadra reservada</span></span></div>
       <h3>${escapeHTML(match.clubName)}</h3>
@@ -1188,7 +1226,7 @@
       <div class="match-player-list" aria-label="Jogadores e vagas">${matchPlayerSlots(match)}</div>
       <div class="match-detail"><div><small>Categoria</small><strong>${escapeHTML(formatLevelCategoriesShort(match))}</strong></div><div><small>Status</small><strong>${escapeHTML(status)}</strong></div></div>
       <div class="match-card-actions">
-        <button class="button match-join-btn" data-match-quick-join type="button">Participe</button>
+        ${joinBtn}
         <button class="button button-outline match-detail-btn" data-match-open-detail type="button">Ver detalhes${unread ? `&nbsp;<span class="nav-count" aria-label="${unread} mensagens não lidas">${unread}</span>` : ""}</button>
       </div>
     </article>`;
@@ -1222,6 +1260,62 @@
     });
   }
 
+  function applyMatchFilters(matches) {
+    const { date, category, gender } = state.matchFilters;
+    return matches.filter((match) => {
+      if (date) {
+        const d = new Date(match.startAt);
+        const matchDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        if (matchDate !== date) return false;
+      }
+      if (category && match.levelCategories?.length) {
+        if (!match.levelCategories.includes(category)) return false;
+      }
+      if (gender) {
+        if ((match.genderCategory ?? "all") !== gender) return false;
+      }
+      return true;
+    });
+  }
+
+  function updateMatchFilterBadge() {
+    const { date, category, gender } = state.matchFilters;
+    const count = [date, category, gender].filter(Boolean).length;
+    const badge = $("[data-match-filter-badge]");
+    if (badge) {
+      badge.textContent = count > 0 ? String(count) : "";
+      badge.classList.toggle("hidden", count === 0);
+    }
+  }
+
+  function setupMatchFilters() {
+    $("[data-match-filter-toggle]")?.addEventListener("click", () => {
+      $("[data-match-filter-panel]")?.classList.toggle("hidden");
+    });
+    $("[data-match-filter-clear]")?.addEventListener("click", () => {
+      state.matchFilters = { date: "", category: "", gender: "" };
+      const dateEl = $("[data-filter-date]");
+      const catEl = $("[data-filter-category]");
+      const genEl = $("[data-filter-gender]");
+      if (dateEl) dateEl.value = "";
+      if (catEl) catEl.value = "";
+      if (genEl) genEl.value = "";
+      updateMatchFilterBadge();
+      renderMatches();
+      $("[data-match-filter-panel]")?.classList.add("hidden");
+    });
+    $("[data-match-filter-apply]")?.addEventListener("click", () => {
+      state.matchFilters = {
+        date: $("[data-filter-date]")?.value || "",
+        category: $("[data-filter-category]")?.value || "",
+        gender: $("[data-filter-gender]")?.value || "",
+      };
+      updateMatchFilterBadge();
+      renderMatches();
+      $("[data-match-filter-panel]")?.classList.add("hidden");
+    });
+  }
+
   // TASKS-14 / TASK-62 — "Meus jogos" sempre no topo (inclui partidas
   // cheias, que a TASK-61 esconde da listagem pública), e abaixo a
   // listagem normal de jogos disponíveis, sem duplicar.
@@ -1230,8 +1324,10 @@
     const mine = state.matches.filter((match) =>
       (match.participantIds ?? []).includes(myId),
     );
-    const available = state.matches.filter(
-      (match) => !(match.participantIds ?? []).includes(myId),
+    const available = applyMatchFilters(
+      state.matches.filter(
+        (match) => !(match.participantIds ?? []).includes(myId),
+      ),
     );
     const mySection = $("[data-my-matches-section]");
     const myGrid = $("[data-my-matches-grid]");
@@ -1252,11 +1348,7 @@
 
   async function loadMatches() {
     try {
-      // TASK-50 — filtro por categoria de gênero.
-      const filter = $("[data-match-gender-filter]")?.value || "";
-      const data = await apiRequest(
-        `/api/v1/matches${filter ? `?genderCategory=${encodeURIComponent(filter)}` : ""}`,
-      );
+      const data = await apiRequest("/api/v1/matches");
       state.matches = data.matches;
       renderPendingResultsBadge(data.pendingResults);
       renderMatches();
@@ -3115,8 +3207,7 @@
       previewPlayerPhoto,
     );
     $("[data-level-test-form]")?.addEventListener("submit", submitLevelTest);
-    // TASK-50: refazer a listagem ao mudar o filtro de categoria.
-    $("[data-match-gender-filter]")?.addEventListener("change", loadMatches);
+    setupMatchFilters();
     // TASK-17B: formulário de placar (sempre 3 sets).
     const resultForm = $("[data-match-result-form]");
     resultForm?.addEventListener("submit", submitMatchResult);

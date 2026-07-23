@@ -1689,25 +1689,49 @@
     return count === 1 ? tournament.courts[0].name : `${count} quadras`;
   }
 
-  // TASK-94 — mesma hierarquia visual do card do clube: contador de vagas
-  // em destaque no canto superior direito, corpo com nome/clube/categorias,
-  // rodapé com data/horário e quadras.
   function super8OpenCard(tournament) {
-    const modeLabel =
-      tournament.mode === "duplas_fixas"
-        ? "Duplas fixas"
-        : "Cada um por si (rotação)";
-    const categoriesLabel = tournament.levelCategories
-      ? tournament.levelCategories.join(", ")
-      : "Todas as categorias";
+    const formatLabel = `Super ${tournament.size} · ${tournament.mode === "duplas_fixas" ? "Duplas Fixas" : "Rotação"}`;
+    const levelShort = formatLevelCategoriesShort(tournament);
+    const levelChips =
+      levelShort === "Todas"
+        ? '<span class="super8-level-chip">Todas</span>'
+        : levelShort
+            .split(", ")
+            .map((c) => `<span class="super8-level-chip">${escapeHTML(c)}</span>`)
+            .join("");
+    const players = tournament.players || [];
+    const visiblePlayers = players.slice(0, 4);
+    const overflow = players.length - 4;
+    const playerBubbles = visiblePlayers
+      .map((p) => {
+        const url = safePhotoUrl(p.photoUrl);
+        const pname = p.displayName || p.name || "Jogador";
+        return url
+          ? `<span class="super8-player-bubble" style="background-image:url('${escapeHTML(url)}')" aria-label="${escapeHTML(pname)}"></span>`
+          : `<span class="super8-player-bubble super8-player-bubble-initials" aria-label="${escapeHTML(pname)}">${escapeHTML(initialsFor(pname))}</span>`;
+      })
+      .join("");
+    const overflowBubble =
+      overflow > 0 ? `<span class="super8-player-overflow">+${overflow}</span>` : "";
+    const enrollCount = tournament.enrolled ?? players.length;
+    const statusBadge = tournament.alreadyJoined
+      ? '<span class="status-badge status-badge-joined">Inscrito</span>'
+      : '<span class="status-badge">Inscrições abertas</span>';
     return `<article class="super8-card card-hover" data-super8-open-row="${escapeHTML(tournament.id)}" tabindex="0" role="button" aria-label="Ver detalhes de ${escapeHTML(tournament.name)}">
-      <div class="super8-card-top">
-        <div><span class="status-badge">${tournament.alreadyJoined ? "Inscrito" : "Inscrições abertas"}</span><span class="super8-card-mode">${escapeHTML(modeLabel)}</span></div>
-        <span class="super8-players-badge">${tournament.enrolled}/${tournament.size}</span>
+      <div class="super8-card-header">
+        <span class="super8-card-datetime">${escapeHTML(super8DateTimeLabel(tournament))}</span>
+        ${statusBadge}
       </div>
+      <p class="super8-card-format">${escapeHTML(formatLabel)}</p>
       <h3>${escapeHTML(tournament.name)}</h3>
-      <p class="super8-card-categories">${escapeHTML(tournament.clubName)} · ${escapeHTML(categoriesLabel)}</p>
-      <div class="super8-card-footer"><span>${escapeHTML(super8DateTimeLabel(tournament))}</span><span>${escapeHTML(super8CourtsSummary(tournament))}</span></div>
+      <div class="super8-card-meta">
+        <div class="super8-level-chips">${levelChips}</div>
+        <div class="super8-card-players">${playerBubbles}${overflowBubble}<span class="super8-players-count">${enrollCount}/${tournament.size}</span></div>
+      </div>
+      <div class="super8-card-footer">
+        <span class="super8-card-club">${escapeHTML(tournament.clubName)}</span>
+        <span class="super8-card-cta">Ver detalhes →</span>
+      </div>
     </article>`;
   }
 

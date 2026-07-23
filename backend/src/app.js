@@ -3439,12 +3439,23 @@ export async function createApp(overrides = {}) {
           "Você não está inscrito neste torneio.",
         );
       }
-      let updatedPlayers = current.players.filter((p) => p.id !== user.id);
-      // If player had a partner, set that partner back to solo (partnerId = null)
-      if (myEntry.partnerId) {
-        updatedPlayers = updatedPlayers.map((p) =>
-          p.id === myEntry.partnerId ? { ...p, partnerId: null } : p,
+      const leaveBody = await readJson(request).catch(() => ({}));
+      const leavePair = leaveBody?.leavePair === true && Boolean(myEntry.partnerId);
+      let updatedPlayers;
+      if (leavePair) {
+        // Remove both the player and their partner
+        const partnerId = myEntry.partnerId;
+        updatedPlayers = current.players.filter(
+          (p) => p.id !== user.id && p.id !== partnerId,
         );
+      } else {
+        updatedPlayers = current.players.filter((p) => p.id !== user.id);
+        // If player had a partner, set partner back to solo (partnerId = null)
+        if (myEntry.partnerId) {
+          updatedPlayers = updatedPlayers.map((p) =>
+            p.id === myEntry.partnerId ? { ...p, partnerId: null } : p,
+          );
+        }
       }
       const tournament = await super8.update(tournamentId, current.clubId, {
         players: updatedPlayers,

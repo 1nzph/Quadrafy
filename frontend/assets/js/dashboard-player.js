@@ -1749,13 +1749,7 @@
   function super8OpenCard(tournament) {
     const formatLabel = `Super ${tournament.size} · ${tournament.mode === "duplas_fixas" ? "Duplas Fixas" : "Rotação"}`;
     const levelShort = formatLevelCategoriesShort(tournament);
-    const levelChips =
-      levelShort === "Todas"
-        ? '<span class="super8-level-chip">Todas</span>'
-        : levelShort
-            .split(", ")
-            .map((c) => `<span class="super8-level-chip">${escapeHTML(c)}</span>`)
-            .join("");
+    const levelChips = `<span class="super8-level-chip">Cat. ${escapeHTML(levelShort)}</span>`;
     const genderChip = super8GenderChip(tournament);
     const players = tournament.players || [];
     const visiblePlayers = players.slice(0, 4);
@@ -2004,7 +1998,7 @@
     // Duplas fixas
     if (tournament.alreadyJoined && !tournament.alreadySolo) {
       // Already paired
-      appendLeaveButton(area, tournament);
+      appendLeaveButton(area, tournament, true);
       return;
     }
     if (tournament.alreadySolo) {
@@ -2134,21 +2128,42 @@
     });
   }
 
-  function appendLeaveButton(area, tournament) {
-    const btn = document.createElement("button");
-    btn.className = "button button-ghost button-block";
-    btn.type = "button";
-    btn.textContent = "Sair do torneio";
-    btn.style.marginTop = "10px";
-    btn.onclick = () => leaveSuper8(btn, tournament.id, tournament.name);
-    area.appendChild(btn);
+  function appendLeaveButton(area, tournament, isPaired = false) {
+    const wrap = document.createElement("div");
+    wrap.style.marginTop = "10px";
+    wrap.style.display = "flex";
+    wrap.style.gap = "8px";
+
+    const soloBtn = document.createElement("button");
+    soloBtn.className = isPaired
+      ? "button button-ghost"
+      : "button button-ghost button-block";
+    soloBtn.type = "button";
+    soloBtn.textContent = "Sair do torneio";
+    soloBtn.onclick = () =>
+      leaveSuper8(soloBtn, tournament.id, tournament.name, false);
+    wrap.appendChild(soloBtn);
+
+    if (isPaired) {
+      const pairBtn = document.createElement("button");
+      pairBtn.className = "button button-ghost";
+      pairBtn.type = "button";
+      pairBtn.textContent = "Sair em dupla";
+      pairBtn.onclick = () =>
+        leaveSuper8(pairBtn, tournament.id, tournament.name, true);
+      wrap.appendChild(pairBtn);
+    }
+
+    area.appendChild(wrap);
   }
 
-  async function leaveSuper8(button, tournamentId, tournamentName) {
+  async function leaveSuper8(button, tournamentId, tournamentName, leavePair) {
     const confirmed = await confirmAction({
       eyebrow: "Super 8",
-      title: "Sair do torneio?",
-      message: `Você será removido(a) de "${tournamentName}". Se tiver um parceiro confirmado, ele(a) voltará a ser solo.`,
+      title: leavePair ? "Sair em dupla?" : "Sair do torneio?",
+      message: leavePair
+        ? `Você e seu parceiro(a) serão removidos de "${tournamentName}".`
+        : `Você será removido(a) de "${tournamentName}". Se tiver um parceiro confirmado, ele(a) voltará a ser solo.`,
       confirmLabel: "Sair",
       cancelLabel: "Cancelar",
     });
@@ -2157,9 +2172,9 @@
     try {
       await apiRequest(
         `/api/v1/players/super8/${encodeURIComponent(tournamentId)}/leave`,
-        { method: "POST" },
+        { method: "POST", body: leavePair ? { leavePair: true } : {} },
       );
-      showToast("Você saiu do torneio.");
+      showToast(leavePair ? "Dupla removida do torneio." : "Você saiu do torneio.");
       closeModal($("[data-super8-player-detail-modal]"));
       openSuper8Screen();
     } catch (error) {

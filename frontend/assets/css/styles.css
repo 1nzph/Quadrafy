@@ -288,23 +288,23 @@ em {
   line-height: 0;
 }
 .brand-logo-surface--nav {
-  padding: 4px 8px;
-  background: rgba(255, 254, 250, 0.92);
-  box-shadow: 0 7px 24px rgba(6, 12, 25, 0.12);
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
   transition:
     padding 0.3s var(--ease),
     background 0.3s,
     box-shadow 0.3s;
 }
 .brand-logo-surface--login {
-  padding: 7px 10px;
-  background: rgba(255, 254, 250, 0.82);
-  box-shadow: 0 10px 28px rgba(16, 25, 46, 0.08);
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .brand-logo-surface--footer {
-  padding: 8px 11px;
-  background: var(--paper);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.34);
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .brand-icon-crop {
   position: relative;
@@ -386,10 +386,11 @@ em {
 .site-nav.scrolled .brand {
   color: var(--indigo-deep);
 }
-.site-nav.scrolled .brand-logo-surface--nav {
-  padding: 2px 5px;
-  background: transparent;
-  box-shadow: none;
+.site-nav:not(.scrolled) .brand-logo-surface--nav {
+  padding: 5px 10px;
+  background: rgba(255, 254, 250, 0.88);
+  box-shadow: 0 4px 18px rgba(6, 12, 25, 0.16);
+  border-radius: 10px;
 }
 .site-nav.scrolled .button-ghost {
   color: var(--ink);

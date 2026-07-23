@@ -627,28 +627,29 @@
 
   function resetBookingCategories() {
     const cat = getMyLevelCategory();
-    $$("[data-booking-categories-grid] input").forEach((input) => {
-      input.checked = Boolean(cat) && input.value === cat;
-    });
-    const panel = $("[data-booking-cats-panel]");
-    if (cat) {
-      panel?.classList.remove("hidden");
-    } else {
-      panel?.classList.add("hidden");
-    }
-    updateBookingCatsSummary();
+    const band = cat ? LEVEL_BAND_MAP[cat] : null;
+    const minInput = $("[data-level-range-min]");
+    const maxInput = $("[data-level-range-max]");
+    if (minInput) minInput.value = band ? band.min : 0;
+    if (maxInput) maxInput.value = band ? band.max : 7;
+    updateLevelRangeFill();
   }
 
-  function setupBookingCategorySelector() {
-    $("[data-booking-cats-toggle]")?.addEventListener("click", () => {
-      $("[data-booking-cats-panel]")?.classList.toggle("hidden");
+  function setupLevelRangeSlider() {
+    const minInput = $("[data-level-range-min]");
+    const maxInput = $("[data-level-range-max]");
+    if (!minInput || !maxInput) return;
+    minInput.addEventListener("input", () => {
+      if (parseFloat(minInput.value) >= parseFloat(maxInput.value))
+        minInput.value = parseFloat(maxInput.value) - 0.5;
+      updateLevelRangeFill();
     });
-    $("[data-booking-cats-ok]")?.addEventListener("click", () => {
-      $("[data-booking-cats-panel]")?.classList.add("hidden");
+    maxInput.addEventListener("input", () => {
+      if (parseFloat(maxInput.value) <= parseFloat(minInput.value))
+        maxInput.value = parseFloat(minInput.value) + 0.5;
+      updateLevelRangeFill();
     });
-    $$("[data-booking-categories-grid] input").forEach((input) => {
-      input.addEventListener("change", updateBookingCatsSummary);
-    });
+    updateLevelRangeFill();
   }
 
   function setupBookingModal() {
@@ -658,11 +659,11 @@
       resetBookingCategories();
       openAccessibleModal(
         $("[data-booking-modal]"),
-        "[data-booking-cats-toggle]",
+        "[data-level-range-min]",
       );
     });
     setupInviteSearch();
-    setupBookingCategorySelector();
+    setupLevelRangeSlider();
     $("[data-confirm-booking]")?.addEventListener("click", confirmBooking);
   }
 
@@ -753,9 +754,9 @@
   async function confirmBooking(event, allowConflict = false) {
     if (!state.selectedSlot || !state.selectedClub) return;
     const button = event.currentTarget;
-    const levelCategories = readLevelCategories(
-      $("[data-booking-categories-all]"),
-      "[data-booking-categories-grid]",
+    const levelCategories = levelRangeToCategories(
+      parseFloat($("[data-level-range-min]")?.value ?? 0),
+      parseFloat($("[data-level-range-max]")?.value ?? 7),
     );
     setBusy(button, true, "Criando…");
     try {
@@ -928,6 +929,40 @@
     "Avançado Elevado":         { min: 6.5, max: 6.8 },
     "Elite":                    { min: 6.8, max: 7   },
   };
+
+  const LEVEL_BANDS_ORDERED = [
+    { name: "Iniciante",               min: 0,   max: 1   },
+    { name: "Iniciante Intermediário", min: 1,   max: 2   },
+    { name: "Intermediário",           min: 2,   max: 3.5 },
+    { name: "Intermediário Avançado",  min: 3.5, max: 5.5 },
+    { name: "Avançado",                min: 5.5, max: 6.5 },
+    { name: "Avançado Elevado",        min: 6.5, max: 6.8 },
+    { name: "Elite",                   min: 6.8, max: 7   },
+  ];
+
+  function levelRangeToCategories(min, max) {
+    if (min === 0 && max === 7) return null;
+    const cats = LEVEL_BANDS_ORDERED.filter(b => b.max > min && b.min < max).map(b => b.name);
+    return cats.length ? cats : null;
+  }
+
+  function updateLevelRangeFill() {
+    const minInput = $("[data-level-range-min]");
+    const maxInput = $("[data-level-range-max]");
+    if (!minInput || !maxInput) return;
+    const min = parseFloat(minInput.value);
+    const max = parseFloat(maxInput.value);
+    const fill = $("[data-level-range-fill]");
+    if (fill) {
+      fill.style.left = (min / 7 * 100) + "%";
+      fill.style.right = ((7 - max) / 7 * 100) + "%";
+    }
+    const display = $("[data-level-range-display]");
+    if (display) {
+      const fmt = (n) => (n % 1 === 0 ? String(n) : String(n).replace(".", ","));
+      display.textContent = (min === 0 && max === 7) ? "Todas" : `${fmt(min)} – ${fmt(max)}`;
+    }
+  }
 
   function formatLevelRange(record) {
     if (!record.levelCategories?.length) return "";

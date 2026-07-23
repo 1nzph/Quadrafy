@@ -531,8 +531,6 @@
 
   function updateSelection() {
     const selected = state.selectedSlot;
-    const panel = $("[data-inline-selection]");
-    if (panel) panel.classList.toggle("hidden", !selected);
     if (!selected) return;
     const dateLabel = formatDate(selected.startAt, {
       weekday: "short",
@@ -544,12 +542,14 @@
     $("[data-summary-date]").textContent = dateLabel;
     $("[data-summary-time]").textContent = timeLabel;
     $("[data-summary-court]").textContent = selected.courtName;
-    $("[data-summary-price]").textContent = formatCurrency(selected.price);
+    const priceEl = $("[data-summary-price]");
+    if (priceEl) priceEl.textContent = formatCurrency(selected.price);
     $("[data-modal-club]").textContent = state.selectedClub.club.name;
     $("[data-modal-court]").textContent = selected.courtName;
     $("[data-modal-date]").textContent = dateLabel;
     $("[data-modal-time]").textContent = timeLabel;
     $("[data-modal-price]").textContent = formatCurrency(selected.price);
+    openModal($("[data-slot-selection-modal]"));
   }
 
   async function fetchClubDetail() {
@@ -653,6 +653,7 @@
 
   function setupBookingModal() {
     $("[data-open-booking]")?.addEventListener("click", () => {
+      closeModal($("[data-slot-selection-modal]"));
       resetInvitePlayers();
       resetBookingCategories();
       openAccessibleModal(

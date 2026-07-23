@@ -2421,6 +2421,39 @@ em {
 .inline-selection .button {
   white-space: nowrap;
 }
+.slot-selection-card {
+  width: min(380px, 100%);
+}
+.slot-selection-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 4px 0 16px;
+}
+.slot-selection-info {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.slot-selection-info > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.42);
+}
+.slot-selection-info small {
+  font-size: 10px;
+  color: var(--ink-soft);
+}
+.slot-selection-info strong {
+  font-size: 12px;
+  font-weight: 600;
+}
 .empty-selection p {
   max-width: 160px;
   margin: 0;

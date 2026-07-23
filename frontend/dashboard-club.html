@@ -265,115 +265,136 @@
           <div class="manage-view" data-manage-view="settings">
             <div class="settings-layout">
               <aside>
-                <button class="active" type="button">Informações gerais</button
-                ><button type="button">Funcionamento</button
-                ><button type="button">Políticas</button
-                ><button type="button">Equipe e acessos</button>
+                <button class="active" type="button" data-settings-tab="info">Informações gerais</button
+                ><button type="button" data-settings-tab="hours">Funcionamento</button>
               </aside>
-              <form data-club-settings-form>
-                <div class="subheading">
-                  <div>
-                    <h2>Informações gerais</h2>
-                    <p>Dados públicos exibidos para os jogadores.</p>
-                  </div>
-                </div>
-                <div class="profile-photo-upload club-photo-upload">
-                  <div class="profile-photo-preview club-photo-preview">
-                    <img
-                      data-club-photo-preview
-                      alt="Prévia da foto de capa da arena"
-                      hidden
-                    />
-                    <span data-club-photo-placeholder>QF</span>
-                  </div>
-                  <div class="profile-photo-upload-copy">
-                    <strong>Foto de capa da arena</strong>
-                    <span>JPEG, PNG ou WebP, com até 5 MB.</span>
-                    <label
-                      class="button button-outline profile-photo-button"
-                    >
-                      Escolher imagem
-                      <input
-                        type="file"
-                        name="photo"
-                        accept="image/jpeg,image/png,image/webp"
-                        data-club-photo-input
-                      />
+              <div>
+                <div data-settings-view="info">
+                  <form data-club-settings-form>
+                    <div class="subheading">
+                      <div>
+                        <h2>Informações gerais</h2>
+                        <p>Dados públicos exibidos para os jogadores.</p>
+                      </div>
+                    </div>
+                    <div class="profile-photo-upload club-photo-upload">
+                      <div class="profile-photo-preview club-photo-preview">
+                        <img
+                          data-club-photo-preview
+                          alt="Prévia da foto de capa da arena"
+                          hidden
+                        />
+                        <span data-club-photo-placeholder>QF</span>
+                      </div>
+                      <div class="profile-photo-upload-copy">
+                        <strong>Foto de capa da arena</strong>
+                        <span>JPEG, PNG ou WebP, com até 5 MB.</span>
+                        <label class="button button-outline profile-photo-button">
+                          Escolher imagem
+                          <input
+                            type="file"
+                            name="photo"
+                            accept="image/jpeg,image/png,image/webp"
+                            data-club-photo-input
+                          />
+                        </label>
+                        <button
+                          class="photo-clear-button hidden"
+                          type="button"
+                          data-club-photo-clear
+                        >
+                          × Remover imagem selecionada
+                        </button>
+                        <p
+                          class="photo-error-note hidden"
+                          data-club-photo-error
+                          aria-live="polite"
+                        ></p>
+                      </div>
+                    </div>
+                    <label class="input-group"
+                      ><span>Nome da arena</span
+                      ><input
+                        type="text"
+                        name="arenaName"
+                        minlength="2"
+                        maxlength="120"
+                        required
+                        data-setting-name /></label
+                    ><label class="input-group"
+                      ><span>Descrição</span
+                      ><textarea
+                        rows="4"
+                        name="description"
+                        maxlength="800"
+                        data-setting-description
+                      ></textarea>
                     </label>
-              <button
-                class="photo-clear-button hidden"
-                type="button"
-                data-club-photo-clear
-              >
-                × Remover imagem selecionada
-              </button>
-              <p
-                class="photo-error-note hidden"
-                data-club-photo-error
-                aria-live="polite"
-              ></p>
+                    <div class="input-grid">
+                      <label class="input-group"
+                        ><span>Telefone</span
+                        ><input
+                          type="tel"
+                          name="phone"
+                          maxlength="40"
+                          data-setting-phone /></label
+                      ><label class="input-group"
+                        ><span>E-mail</span
+                        ><input
+                          type="email"
+                          name="email"
+                          readonly
+                          aria-describedby="club-email-help"
+                          data-setting-email
+                      /></label>
+                    </div>
+                    <small id="club-email-help"
+                      >O e-mail de acesso não é alterado por este formulário.</small
+                    >
+                    <label class="input-group"
+                      ><span>Endereço</span
+                      ><input
+                        type="text"
+                        name="address"
+                        minlength="5"
+                        maxlength="240"
+                        autocomplete="street-address"
+                        required
+                        data-setting-address
+                    /></label>
+                    <p
+                      class="auth-feedback hidden"
+                      role="status"
+                      aria-live="polite"
+                      data-club-settings-feedback
+                    ></p>
+                    <button class="button button-primary" type="submit">
+                      Salvar alterações
+                    </button>
+                  </form>
+                </div>
+
+                <div class="hidden" data-settings-view="hours">
+                  <div class="subheading">
+                    <div>
+                      <h2>Horário de funcionamento</h2>
+                      <p>Informe os dias e horários em que a arena está aberta.</p>
+                    </div>
                   </div>
+                  <form data-business-hours-form>
+                    <div class="biz-hours-grid" data-biz-hours-grid></div>
+                    <p
+                      class="auth-feedback hidden"
+                      role="status"
+                      aria-live="polite"
+                      data-hours-feedback
+                    ></p>
+                    <button class="button button-primary" type="submit">
+                      Salvar horários
+                    </button>
+                  </form>
                 </div>
-                <label class="input-group"
-                  ><span>Nome da arena</span
-                  ><input
-                    type="text"
-                    name="arenaName"
-                    minlength="2"
-                    maxlength="120"
-                    required
-                    data-setting-name /></label
-                ><label class="input-group"
-                  ><span>Descrição</span
-                  ><textarea
-                    rows="4"
-                    name="description"
-                    maxlength="800"
-                    data-setting-description
-                  ></textarea>
-                </label>
-                <div class="input-grid">
-                  <label class="input-group"
-                    ><span>Telefone</span
-                    ><input
-                      type="tel"
-                      name="phone"
-                      maxlength="40"
-                      data-setting-phone /></label
-                  ><label class="input-group"
-                    ><span>E-mail</span
-                    ><input
-                      type="email"
-                      name="email"
-                      readonly
-                      aria-describedby="club-email-help"
-                      data-setting-email
-                  /></label>
-                </div>
-                <small id="club-email-help"
-                  >O e-mail de acesso não é alterado por este formulário.</small
-                >
-                <label class="input-group"
-                  ><span>Endereço</span
-                  ><input
-                    type="text"
-                    name="address"
-                    minlength="5"
-                    maxlength="240"
-                    autocomplete="street-address"
-                    required
-                    data-setting-address
-                /></label>
-                <p
-                  class="auth-feedback hidden"
-                  role="status"
-                  aria-live="polite"
-                  data-club-settings-feedback
-                ></p>
-                <button class="button button-primary" type="submit">
-                  Salvar alterações
-                </button>
-              </form>
+              </div>
             </div>
           </div>
         </div>

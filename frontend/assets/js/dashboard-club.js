@@ -1589,6 +1589,89 @@
     }
   }
 
+  const BIZ_DAYS = [
+    { key: "sun", label: "Domingo" },
+    { key: "mon", label: "Segunda" },
+    { key: "tue", label: "Terça" },
+    { key: "wed", label: "Quarta" },
+    { key: "thu", label: "Quinta" },
+    { key: "fri", label: "Sexta" },
+    { key: "sat", label: "Sábado" },
+  ];
+
+  function switchSettingsTab(tab) {
+    $$("[data-settings-tab]").forEach((btn) =>
+      btn.classList.toggle("active", btn.dataset.settingsTab === tab),
+    );
+    $$("[data-settings-view]").forEach((view) =>
+      view.classList.toggle("hidden", view.dataset.settingsView !== tab),
+    );
+  }
+
+  function buildBizHoursGrid() {
+    const grid = $("[data-biz-hours-grid]");
+    if (!grid || grid.children.length > 0) return;
+    for (const { key, label } of BIZ_DAYS) {
+      const row = document.createElement("div");
+      row.className = "biz-hours-row closed";
+      row.dataset.bizDay = key;
+
+      const dayLabel = document.createElement("span");
+      dayLabel.className = "biz-hours-day-label";
+      dayLabel.textContent = label;
+
+      const toggle = document.createElement("label");
+      toggle.className = "biz-open-toggle";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.name = `${key}-open`;
+      const toggleText = document.createElement("span");
+      toggleText.textContent = "Aberto";
+      toggle.append(checkbox, toggleText);
+
+      const times = document.createElement("div");
+      times.className = "biz-hours-times";
+
+      const startSel = document.createElement("select");
+      startSel.name = `${key}-start`;
+      startSel.setAttribute("aria-label", `Abertura ${label}`);
+      populateHalfHourSelect(startSel, "06:00");
+
+      const dash = document.createElement("span");
+      dash.textContent = "até";
+
+      const endSel = document.createElement("select");
+      endSel.name = `${key}-end`;
+      endSel.setAttribute("aria-label", `Fechamento ${label}`);
+      populateHalfHourSelect(endSel, "23:00");
+
+      times.append(startSel, dash, endSel);
+      row.append(dayLabel, toggle, times);
+      grid.appendChild(row);
+
+      checkbox.addEventListener("change", () => {
+        row.classList.toggle("closed", !checkbox.checked);
+      });
+    }
+  }
+
+  function populateBizHours(businessHours) {
+    buildBizHoursGrid();
+    const bh = businessHours ?? {};
+    for (const { key } of BIZ_DAYS) {
+      const row = $(`[data-biz-day="${key}"]`);
+      if (!row) continue;
+      const entry = bh[key] ?? { open: false, start: "06:00", end: "23:00" };
+      const checkbox = row.querySelector(`[name="${key}-open"]`);
+      const startSel = row.querySelector(`[name="${key}-start"]`);
+      const endSel = row.querySelector(`[name="${key}-end"]`);
+      if (checkbox) checkbox.checked = Boolean(entry.open);
+      if (startSel) startSel.value = entry.start ?? "06:00";
+      if (endSel) endSel.value = entry.end ?? "23:00";
+      row.classList.toggle("closed", !entry.open);
+    }
+  }
+
   function setupClubSettings() {
     $("[data-club-photo-input]")?.addEventListener(
       "change",
@@ -1627,6 +1710,7 @@
               phone: values.phone,
               address: values.address,
               photoUrl,
+              businessHours: state.club?.businessHours ?? null,
             },
           });
           state.club = data.club;
@@ -1651,6 +1735,59 @@
         }
       },
     );
+
+    $$("[data-settings-tab]").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        switchSettingsTab(btn.dataset.settingsTab);
+        if (btn.dataset.settingsTab === "hours") {
+          buildBizHoursGrid();
+          populateBizHours(state.club?.businessHours ?? null);
+        }
+      }),
+    );
+
+    $("[data-business-hours-form]")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const button = $('button[type="submit"]', form);
+      const businessHours = {};
+      for (const { key } of BIZ_DAYS) {
+        const checkbox = form.elements[`${key}-open`];
+        const startSel = form.elements[`${key}-start`];
+        const endSel = form.elements[`${key}-end`];
+        businessHours[key] = {
+          open: checkbox?.checked ?? false,
+          start: startSel?.value ?? "06:00",
+          end: endSel?.value ?? "23:00",
+        };
+      }
+      showFormFeedback("[data-hours-feedback]", "");
+      button.disabled = true;
+      button.textContent = "Salvando…";
+      try {
+        const club = state.club;
+        const data = await apiRequest("/api/v1/club/profile", {
+          method: "PATCH",
+          body: {
+            name: club.name,
+            description: club.description ?? "",
+            phone: club.phone ?? "",
+            address: club.address,
+            photoUrl: club.photoUrl ?? "",
+            businessHours,
+          },
+        });
+        state.club = data.club;
+        state.session.club = data.club;
+        showFormFeedback("[data-hours-feedback]", "Horários salvos.", true);
+        showToast("Horários de funcionamento atualizados.");
+      } catch (error) {
+        showFormFeedback("[data-hours-feedback]", error.message);
+      } finally {
+        button.disabled = false;
+        button.textContent = "Salvar horários";
+      }
+    });
   }
 
   async function loadSchedule() {

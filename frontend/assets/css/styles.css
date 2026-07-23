@@ -3472,8 +3472,69 @@ em {
   background: var(--indigo);
   color: #fff;
 }
+.settings-layout > div {
+  min-width: 0;
+}
 .settings-layout form {
   max-width: 650px;
+}
+.biz-hours-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+.biz-hours-row {
+  display: grid;
+  grid-template-columns: 80px 90px 1fr;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.biz-hours-day-label {
+  font-size: 12px;
+  font-weight: 700;
+}
+.biz-open-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  user-select: none;
+}
+.biz-open-toggle input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--coral);
+  cursor: pointer;
+}
+.biz-hours-times {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.biz-hours-times select {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+.biz-hours-times span {
+  font-size: 11px;
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+.biz-hours-row.closed .biz-hours-times {
+  opacity: 0.3;
+  pointer-events: none;
 }
 .finance-page {
   padding-bottom: 90px;

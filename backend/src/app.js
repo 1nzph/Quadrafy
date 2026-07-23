@@ -519,6 +519,7 @@ export async function createApp(overrides = {}) {
       status: club.status,
       courtCount: activeCourts.length,
       minimumPrice: prices.length ? Math.min(...prices) : null,
+      businessHours: club.businessHours ?? null,
     };
     if (includeCourts) view.courts = activeCourts.map(courtView);
     return view;

@@ -657,6 +657,32 @@ export function validateRegistration(body) {
   };
 }
 
+const WEEKDAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+
+function parseBusinessHours(input) {
+  if (input == null) return null;
+  if (typeof input !== "object" || Array.isArray(input)) return null;
+  const result = {};
+  for (const key of WEEKDAY_KEYS) {
+    const entry = input[key];
+    if (!entry || typeof entry !== "object") {
+      result[key] = { open: false, start: "06:00", end: "23:00" };
+      continue;
+    }
+    const open = Boolean(entry.open);
+    const start =
+      typeof entry.start === "string" && HALF_HOUR_TIME_PATTERN.test(entry.start)
+        ? entry.start
+        : "06:00";
+    const end =
+      typeof entry.end === "string" && HALF_HOUR_TIME_PATTERN.test(entry.end)
+        ? entry.end
+        : "23:00";
+    result[key] = { open, start, end };
+  }
+  return result;
+}
+
 export function validateClubProfile(body) {
   return {
     name: text(body.name, "name", { min: 2, max: 120 }),
@@ -665,6 +691,7 @@ export function validateClubProfile(body) {
     phone: optionalText(body.phone, "phone", { min: 7, max: 40 }) ?? "",
     address: text(body.address, "address", { min: 5, max: 240 }),
     photoUrl: optionalImageUrl(body.photoUrl, "photoUrl", "clubs") ?? "",
+    businessHours: parseBusinessHours(body.businessHours),
   };
 }
 

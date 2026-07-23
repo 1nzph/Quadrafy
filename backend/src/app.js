@@ -2893,14 +2893,48 @@ export async function createApp(overrides = {}) {
           `O torneio precisa de ${current.size} jogadores para gerar a tabela (faltam ${current.size - current.players.length}).`,
         );
       }
-      // TASK-74: quando o quadro completa por vagas em aberto, as duplas
-      // fixas precisam ser definidas (PATCH .../pairs) antes de gerar.
-      if (current.mode === "duplas_fixas" && !current.pairs) {
-        throw new ApiError(
-          409,
-          "super8_pairs_required",
-          "Defina as duplas antes de gerar a tabela.",
+      // TASK-74 / TASK-103: duplas fixas precisam de duplas definidas — seja
+      // via inscrição livre (partnerId nos jogadores) ou via PATCH .../pairs.
+      let effectivePairs = current.pairs ?? null;
+      if (current.mode === "duplas_fixas") {
+        const hasOpenPairings = current.players.some((p) =>
+          Object.prototype.hasOwnProperty.call(p, "partnerId"),
         );
+        if (hasOpenPairings) {
+          // Validate no solo players remain
+          if (current.players.some((p) => p.partnerId === null)) {
+            throw new ApiError(
+              409,
+              "super8_incomplete_pairs",
+              "Todos os inscritos precisam ter um parceiro para gerar a tabela.",
+            );
+          }
+          // Build pairs indexes from partnerId cross-references
+          const seen = new Set();
+          effectivePairs = [];
+          for (let i = 0; i < current.players.length; i += 1) {
+            const p = current.players[i];
+            if (!seen.has(p.id)) {
+              const j = current.players.findIndex((q) => q.id === p.partnerId);
+              if (j === -1) {
+                throw new ApiError(
+                  409,
+                  "super8_incomplete_pairs",
+                  "Dupla incompleta: parceiro não encontrado.",
+                );
+              }
+              effectivePairs.push([i, j]);
+              seen.add(p.id);
+              seen.add(p.partnerId);
+            }
+          }
+        } else if (!effectivePairs) {
+          throw new ApiError(
+            409,
+            "super8_pairs_required",
+            "Defina as duplas antes de gerar a tabela.",
+          );
+        }
       }
       const tournamentCourts = current.courtIds
         .map((courtId) => courts.findById(courtId))
@@ -2910,7 +2944,7 @@ export async function createApp(overrides = {}) {
       const games = generateSuper8Games({
         mode: current.mode,
         players: current.players,
-        pairs: current.pairs ?? [],
+        pairs: effectivePairs ?? [],
         courts: tournamentCourts,
       }).map((game) => ({
         id: createId(),
@@ -3179,13 +3213,75 @@ export async function createApp(overrides = {}) {
           );
         }
       }
-      const players = [
-        ...current.players,
-        { id: user.id, name: displayName(user) },
-      ];
-      const changes = { players };
-      // quadro completo → volta para configuração (o clube gera a tabela)
-      if (players.length >= current.size) {
+      // TASK-103: duplas fixas — inscrição com parceiro, sozinho em modo par
+      // (partnerId: null), ou legado sem rastreio de par (sem partnerId).
+      // O campo "partnerId" no body é o sinal de opt-in para o novo fluxo.
+      const joinBody = await readJson(request).catch(() => ({}));
+      const hasPairField = Object.prototype.hasOwnProperty.call(joinBody ?? {}, "partnerId");
+      const partnerId = hasPairField ? (joinBody.partnerId || null) : undefined;
+      let newPlayers;
+      if (partnerId && current.mode === "duplas_fixas") {
+        // Pair registration: validate partner and add both
+        const partner = users.findById(partnerId);
+        if (!partner || partner.role !== "player") {
+          throw new ApiError(
+            422,
+            "super8_partner_not_found",
+            "Parceiro não encontrado.",
+          );
+        }
+        if (current.players.some((p) => p.id === partnerId)) {
+          throw new ApiError(
+            409,
+            "super8_partner_already_joined",
+            "Este parceiro já está inscrito no torneio.",
+          );
+        }
+        if (current.players.length + 2 > current.size) {
+          throw new ApiError(
+            409,
+            "super8_full",
+            "Não há vagas suficientes para inscrever uma dupla completa.",
+          );
+        }
+        if (current.levelCategories) {
+          const partnerCategory = playerLevelCategory(partner);
+          if (!partnerCategory || !current.levelCategories.includes(partnerCategory)) {
+            throw new ApiError(
+              403,
+              "super8_category_restricted",
+              `O parceiro não se enquadra nas categorias permitidas (${levelCategoriesLabel(current.levelCategories)}).`,
+            );
+          }
+        }
+        newPlayers = [
+          ...current.players,
+          { id: user.id, name: displayName(user), partnerId },
+          { id: partner.id, name: displayName(partner), partnerId: user.id },
+        ];
+      } else if (hasPairField && current.mode === "duplas_fixas") {
+        // Explicit solo opt-in (partnerId: null) — pair-tracking mode, waiting
+        newPlayers = [
+          ...current.players,
+          { id: user.id, name: displayName(user), partnerId: null },
+        ];
+      } else {
+        // Legacy mode: join without pair tracking (for rotacao or old duplas flow)
+        newPlayers = [
+          ...current.players,
+          { id: user.id, name: displayName(user) },
+        ];
+      }
+      const changes = { players: newPlayers };
+      // Close status when full. In pair-tracking mode (any entry has partnerId
+      // property), also require all pairs to be complete.
+      const usingPairTracking = newPlayers.some((p) =>
+        Object.prototype.hasOwnProperty.call(p, "partnerId"),
+      );
+      const allPaired =
+        !usingPairTracking ||
+        newPlayers.every((p) => p.partnerId !== null && p.partnerId !== undefined);
+      if (newPlayers.length >= current.size && allPaired) {
         changes.status = "em_configuracao";
       }
       const tournament = await super8.update(
@@ -3193,6 +3289,120 @@ export async function createApp(overrides = {}) {
         current.clubId,
         changes,
       );
+      sendData(response, 200, {
+        tournament: {
+          id: tournament.id,
+          name: tournament.name,
+          players: tournament.players.length,
+          size: tournament.size,
+          status: tournament.status,
+        },
+      });
+      return true;
+    }
+
+    // TASK-103: duplas fixas — parear jogador solo com outro jogador solo
+    // (ambos já inscritos) ou entrar como parceiro de um solo inscrito.
+    const super8PairWithRoute = pathname.match(
+      /^\/api\/v1\/players\/super8\/([^/]+)\/pair-with$/,
+    );
+    if (super8PairWithRoute && request.method === "POST") {
+      assertSameOrigin(request);
+      const user = requireUser(request, "player");
+      const tournamentId = decodeURIComponent(super8PairWithRoute[1]);
+      const current = super8.findById(tournamentId);
+      if (!current || current.status !== "inscricoes_abertas") {
+        throw new ApiError(
+          404,
+          "super8_not_open",
+          "Este torneio não está com inscrições abertas.",
+        );
+      }
+      if (current.mode !== "duplas_fixas") {
+        throw new ApiError(
+          409,
+          "super8_mode_mismatch",
+          "Parear jogadores só é possível na modalidade duplas fixas.",
+        );
+      }
+      const { targetPlayerId } = await readJson(request);
+      if (!targetPlayerId || typeof targetPlayerId !== "string") {
+        throw new ApiError(422, "validation_failed", "targetPlayerId é obrigatório.");
+      }
+      // Target must be enrolled solo (partnerId === null)
+      const targetEntry = current.players.find((p) => p.id === targetPlayerId);
+      if (!targetEntry) {
+        throw new ApiError(
+          404,
+          "super8_target_not_found",
+          "Jogador alvo não está inscrito neste torneio.",
+        );
+      }
+      if (targetEntry.partnerId !== null) {
+        throw new ApiError(
+          409,
+          "super8_target_has_partner",
+          "Este jogador já tem um parceiro.",
+        );
+      }
+      const myEntry = current.players.find((p) => p.id === user.id);
+      if (myEntry) {
+        // User already enrolled solo — pair both
+        if (myEntry.partnerId !== null) {
+          throw new ApiError(
+            409,
+            "super8_already_paired",
+            "Você já tem um parceiro neste torneio.",
+          );
+        }
+        const updatedPlayers = current.players.map((p) => {
+          if (p.id === user.id) return { ...p, partnerId: targetPlayerId };
+          if (p.id === targetPlayerId) return { ...p, partnerId: user.id };
+          return p;
+        });
+        const allPaired = updatedPlayers.every((p) => p.partnerId !== null && p.partnerId !== undefined);
+        const changes = { players: updatedPlayers };
+        if (updatedPlayers.length >= current.size && allPaired) {
+          changes.status = "em_configuracao";
+        }
+        const tournament = await super8.update(tournamentId, current.clubId, changes);
+        sendData(response, 200, {
+          tournament: {
+            id: tournament.id,
+            name: tournament.name,
+            players: tournament.players.length,
+            size: tournament.size,
+            status: tournament.status,
+          },
+        });
+        return true;
+      }
+      // User not enrolled — join as partner of target
+      if (current.players.length >= current.size) {
+        throw new ApiError(409, "super8_full", "As vagas deste torneio já foram preenchidas.");
+      }
+      if (current.levelCategories) {
+        const category = playerLevelCategory(user);
+        if (!category || !current.levelCategories.includes(category)) {
+          throw new ApiError(
+            403,
+            "super8_category_restricted",
+            `Este Super 8 é restrito às categorias ${levelCategoriesLabel(current.levelCategories)}.`,
+          );
+        }
+      }
+      const updatedPlayers = [
+        ...current.players.map((p) =>
+          p.id === targetPlayerId ? { ...p, partnerId: user.id } : p,
+        ),
+        { id: user.id, name: displayName(user), partnerId: targetPlayerId },
+      ];
+      const allPaired = updatedPlayers.every((p) => p.partnerId !== null && p.partnerId !== undefined);
+      const changes = { players: updatedPlayers };
+      if (updatedPlayers.length >= current.size && allPaired) {
+        changes.status = "em_configuracao";
+      }
+      const tournament = await super8.update(tournamentId, current.clubId, changes);
       sendData(response, 200, {
         tournament: {
           id: tournament.id,
@@ -3246,6 +3456,13 @@ export async function createApp(overrides = {}) {
             spotsLeft: tournament.size - tournament.players.length,
             alreadyJoined: tournament.players.some(
               (player) => player.id === user.id,
+            ),
+            // TASK-103: solo players waiting for a partner (duplas fixas)
+            soloPlayers: tournament.players
+              .filter((p) => p.partnerId === null)
+              .map((p) => ({ id: p.id, name: p.name })),
+            alreadySolo: tournament.players.some(
+              (p) => p.id === user.id && p.partnerId === null,
             ),
           };
         });

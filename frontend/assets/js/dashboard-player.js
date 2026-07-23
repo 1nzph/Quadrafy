@@ -1854,9 +1854,7 @@
     }
   }
 
-  // TASK-76 — tela de detalhe completo do Super 8, mostrada antes de
-  // qualquer inscrição (clube/endereço, data/horário, vagas, modalidade,
-  // categorias, jogadores confirmados com foto/nível e quadras).
+  // TASK-76 — tela de detalhe completo do Super 8.
   function super8RosterRow(player) {
     const name = player.name || "Jogador";
     const photoUrl = safePhotoUrl(player.photoUrl);
@@ -1864,6 +1862,70 @@
       ? `<span class="match-player-avatar"><img src="${escapeHTML(photoUrl)}" alt="" /></span>`
       : `<span aria-hidden="true">${escapeHTML(initialsFor(name))}</span>`;
     return `<div class="match-player-row">${avatar}<div><strong>${escapeHTML(name)}</strong><small>${escapeHTML(matchPlayerLevel(player))}</small></div></div>`;
+  }
+
+  // Builds the player list section for duplas_fixas: groups complete pairs and
+  // shows solo players (awaiting partner) separately with a "pair up" button.
+  function super8DuplasRosterHTML(tournament, myId) {
+    const players = tournament.players ?? [];
+    const useTracking = players.some((p) =>
+      Object.prototype.hasOwnProperty.call(p, "partnerId"),
+    );
+    if (!useTracking) {
+      // Legacy mode: plain list
+      return players.length
+        ? players.map(super8RosterRow).join("")
+        : '<p class="profile-data-note">Nenhum jogador confirmado ainda.</p>';
+    }
+    // Pair-tracking mode: group into complete pairs + solo
+    const seen = new Set();
+    const pairs = [];
+    const solo = [];
+    for (const player of players) {
+      if (seen.has(player.id)) continue;
+      if (player.partnerId) {
+        const partner = players.find((p) => p.id === player.partnerId);
+        if (partner) {
+          pairs.push([player, partner]);
+          seen.add(player.id);
+          seen.add(partner.id);
+        }
+      } else {
+        solo.push(player);
+        seen.add(player.id);
+      }
+    }
+    let html = "";
+    if (pairs.length) {
+      html += `<p class="micro-label">Duplas formadas (${pairs.length})</p>`;
+      html += pairs
+        .map(
+          ([a, b]) =>
+            `<div class="super8-pair-slot">${super8RosterRow(a)}<span class="super8-pair-plus" aria-hidden="true">+</span>${super8RosterRow(b)}</div>`,
+        )
+        .join("");
+    }
+    if (solo.length) {
+      html += `<p class="micro-label" style="margin-top:14px">Aguardando parceiro (${solo.length})</p>`;
+      html += solo
+        .map((p) => {
+          const isMe = p.id === myId;
+          const name = p.name || "Jogador";
+          const photoUrl = safePhotoUrl(p.photoUrl);
+          const avatar = photoUrl
+            ? `<span class="match-player-avatar"><img src="${escapeHTML(photoUrl)}" alt="" /></span>`
+            : `<span aria-hidden="true">${escapeHTML(initialsFor(name))}</span>`;
+          const pairBtn = !isMe
+            ? `<button class="button button-ghost button-small" type="button" data-pair-with="${escapeHTML(p.id)}">Ser parceiro(a)</button>`
+            : '<span class="super8-waiting-label">Aguardando</span>';
+          return `<div class="match-player-row super8-solo-row">${avatar}<div><strong>${escapeHTML(name)}</strong><small>${escapeHTML(matchPlayerLevel(p))}</small></div>${pairBtn}</div>`;
+        })
+        .join("");
+    }
+    if (!pairs.length && !solo.length) {
+      html = '<p class="profile-data-note">Nenhum jogador confirmado ainda.</p>';
+    }
+    return html;
   }
 
   function openSuper8PlayerDetail(tournament) {
@@ -1885,6 +1947,15 @@
     const dateLabel = tournament.date
       ? escapeHTML(super8DateTimeLabel({ date: tournament.date, startTime: null }))
       : "A definir";
+
+    const myId = state.user?.id;
+    const isDuplas = tournament.mode === "duplas_fixas";
+    const rosterHTML = isDuplas
+      ? super8DuplasRosterHTML(tournament, myId)
+      : (tournament.players.length
+          ? tournament.players.map(super8RosterRow).join("")
+          : '<p class="profile-data-note">Nenhum jogador confirmado ainda.</p>');
+
     $("[data-super8-player-detail-content]").innerHTML = `
       <p class="super8-start-time">${escapeHTML(tournament.clubName)}${tournament.clubAddress ? ` · ${escapeHTML(tournament.clubAddress)}` : ""}</p>
       <div class="super8-datetime-highlight"><div><small>Data</small><strong>${dateLabel}</strong></div><div><small>Horário de início</small><strong>${tournament.startTime ? escapeHTML(tournament.startTime) : "A definir"}</strong></div></div>
@@ -1895,20 +1966,162 @@
         <div><small>Categorias</small><strong>${escapeHTML(categoriesLabel)}</strong></div>
         <div><small>Quadras</small><strong>${courtsLabel}</strong></div>
       </div>
-      <div class="super8-section"><p class="micro-label">Jogadores confirmados (${tournament.players.length}/${tournament.size})</p>${
-        tournament.players.length
-          ? tournament.players.map(super8RosterRow).join("")
-          : '<p class="profile-data-note">Nenhum jogador confirmado ainda.</p>'
-      }</div>`;
-    const joinButton = $("[data-super8-player-detail-join]");
-    joinButton.classList.toggle("hidden", Boolean(tournament.alreadyJoined));
-    joinButton.disabled = false;
-    joinButton.textContent = "Inscrever-se";
-    joinButton.onclick = () => joinSuper8(joinButton, tournament.id);
+      <div class="super8-section"><p class="micro-label">Jogadores confirmados (${tournament.players.length}/${tournament.size})</p>${rosterHTML}</div>`;
+
+    // Wire "Ser parceiro" buttons that may be in the roster
+    $$("[data-pair-with]", $("[data-super8-player-detail-content]")).forEach(
+      (btn) => {
+        btn.addEventListener("click", () =>
+          pairWithSoloPlayer(btn, tournament, btn.dataset.pairWith),
+        );
+      },
+    );
+
+    renderSuper8JoinArea(tournament);
     openModal(modal);
   }
 
-  async function joinSuper8(button, tournamentId) {
+  function renderSuper8JoinArea(tournament) {
+    const area = $("[data-super8-player-detail-join-area]");
+    if (!area) return;
+    area.innerHTML = "";
+
+    if (tournament.mode !== "duplas_fixas") {
+      // Rotação: simple join button
+      if (tournament.alreadyJoined) return;
+      const btn = document.createElement("button");
+      btn.className = "button button-primary button-block shine";
+      btn.type = "button";
+      btn.textContent = "Inscrever-se";
+      btn.onclick = () => joinSuper8Simple(btn, tournament.id);
+      area.appendChild(btn);
+      return;
+    }
+
+    // Duplas fixas
+    if (tournament.alreadyJoined && !tournament.alreadySolo) {
+      // Already paired — no action needed
+      return;
+    }
+    if (tournament.alreadySolo) {
+      // Already registered solo — waiting for a partner
+      const note = document.createElement("p");
+      note.className = "profile-data-note";
+      note.textContent =
+        "Você está inscrito(a) aguardando um parceiro. Use o botão "Ser parceiro(a)" ao lado de outro jogador solo para formar uma dupla.";
+      area.appendChild(note);
+      return;
+    }
+    // Not enrolled: show pair/solo options
+    area.innerHTML = `
+      <div class="super8-join-options">
+        <button class="button button-primary shine" type="button" data-duplas-join="pair">
+          Inscrever em dupla
+        </button>
+        <button class="button button-ghost" type="button" data-duplas-join="solo">
+          Entrar sozinho(a)
+        </button>
+      </div>
+      <div class="super8-partner-search hidden" data-partner-search>
+        <label class="input-group">
+          <span>Buscar parceiro(a)</span>
+          <input type="search" placeholder="Nome do jogador…" data-partner-input autocomplete="off" />
+        </label>
+        <div class="super8-search-results hidden" data-partner-results></div>
+        <div class="super8-selected-partner hidden" data-partner-selected></div>
+        <button class="button button-primary button-block shine hidden" type="button" data-partner-confirm>
+          Confirmar inscrição em dupla
+        </button>
+      </div>`;
+
+    let selectedPartnerId = null;
+    let searchTimer = null;
+
+    const pairBtn = $("[data-duplas-join='pair']", area);
+    const soloBtn = $("[data-duplas-join='solo']", area);
+    const searchBox = $("[data-partner-search]", area);
+    const input = $("[data-partner-input]", area);
+    const results = $("[data-partner-results]", area);
+    const selectedDiv = $("[data-partner-selected]", area);
+    const confirmBtn = $("[data-partner-confirm]", area);
+
+    pairBtn.addEventListener("click", () => {
+      searchBox.classList.remove("hidden");
+      pairBtn.classList.add("hidden");
+      soloBtn.classList.add("hidden");
+      input.focus();
+    });
+
+    soloBtn.addEventListener("click", () =>
+      joinSuper8AsSolo(soloBtn, tournament.id),
+    );
+
+    input.addEventListener("input", () => {
+      clearTimeout(searchTimer);
+      const q = input.value.trim();
+      if (q.length < 2) {
+        results.innerHTML = "";
+        results.classList.add("hidden");
+        return;
+      }
+      searchTimer = setTimeout(async () => {
+        try {
+          const data = await apiRequest(
+            `/api/v1/players/search?q=${encodeURIComponent(q)}`,
+          );
+          const players = (data.players ?? []).filter(
+            (p) => p.id !== (state.user?.id),
+          );
+          if (!players.length) {
+            results.innerHTML =
+              '<p class="profile-data-note" style="padding:8px 0">Nenhum jogador encontrado.</p>';
+            results.classList.remove("hidden");
+            return;
+          }
+          results.innerHTML = players
+            .map(
+              (p) =>
+                `<button class="super8-search-row" type="button" data-pick-partner="${escapeHTML(p.id)}" data-pick-name="${escapeHTML(p.displayName)}">${escapeHTML(p.displayName)}${p.level ? ` · Nível ${p.level}` : ""}${p.city ? ` · ${escapeHTML(p.city)}` : ""}</button>`,
+            )
+            .join("");
+          results.classList.remove("hidden");
+          $$("[data-pick-partner]", results).forEach((row) => {
+            row.addEventListener("click", () => {
+              selectedPartnerId = row.dataset.pickPartner;
+              const partnerName = row.dataset.pickName;
+              input.value = "";
+              results.innerHTML = "";
+              results.classList.add("hidden");
+              selectedDiv.innerHTML = `<div class="match-player-row"><span>${escapeHTML(initialsFor(partnerName))}</span><div><strong>${escapeHTML(partnerName)}</strong><small>Parceiro(a) selecionado(a)</small></div><button class="button-ghost button-small" type="button" data-clear-partner style="margin-left:auto">Trocar</button></div>`;
+              selectedDiv.classList.remove("hidden");
+              confirmBtn.classList.remove("hidden");
+              $("[data-clear-partner]", selectedDiv).addEventListener(
+                "click",
+                () => {
+                  selectedPartnerId = null;
+                  selectedDiv.innerHTML = "";
+                  selectedDiv.classList.add("hidden");
+                  confirmBtn.classList.add("hidden");
+                  input.value = "";
+                  input.focus();
+                },
+              );
+            });
+          });
+        } catch {
+          results.innerHTML = "";
+          results.classList.add("hidden");
+        }
+      }, 250);
+    });
+
+    confirmBtn.addEventListener("click", () => {
+      if (selectedPartnerId)
+        joinSuper8WithPartner(confirmBtn, tournament.id, selectedPartnerId);
+    });
+  }
+
+  async function joinSuper8Simple(button, tournamentId) {
     setBusy(button, true, "Inscrevendo…");
     try {
       const { tournament } = await apiRequest(
@@ -1917,6 +2130,60 @@
       );
       showToast(
         `Inscrição confirmada em ${tournament.name} (${tournament.players}/${tournament.size}).`,
+      );
+      closeModal($("[data-super8-player-detail-modal]"));
+      openSuper8Screen();
+    } catch (error) {
+      showToast(error.message);
+      if (button.isConnected) setBusy(button, false);
+    }
+  }
+
+  async function joinSuper8AsSolo(button, tournamentId) {
+    setBusy(button, true, "Inscrevendo…");
+    try {
+      const { tournament } = await apiRequest(
+        `/api/v1/players/super8/${encodeURIComponent(tournamentId)}/join`,
+        { method: "POST", body: { partnerId: null } },
+      );
+      showToast(
+        `Inscrito(a) em ${tournament.name}. Aguardando um parceiro.`,
+      );
+      closeModal($("[data-super8-player-detail-modal]"));
+      openSuper8Screen();
+    } catch (error) {
+      showToast(error.message);
+      if (button.isConnected) setBusy(button, false);
+    }
+  }
+
+  async function joinSuper8WithPartner(button, tournamentId, partnerId) {
+    setBusy(button, true, "Inscrevendo…");
+    try {
+      const { tournament } = await apiRequest(
+        `/api/v1/players/super8/${encodeURIComponent(tournamentId)}/join`,
+        { method: "POST", body: { partnerId } },
+      );
+      showToast(
+        `Dupla inscrita em ${tournament.name} (${tournament.players}/${tournament.size}).`,
+      );
+      closeModal($("[data-super8-player-detail-modal]"));
+      openSuper8Screen();
+    } catch (error) {
+      showToast(error.message);
+      if (button.isConnected) setBusy(button, false);
+    }
+  }
+
+  async function pairWithSoloPlayer(button, tournament, targetPlayerId) {
+    setBusy(button, true, "Pareando…");
+    try {
+      const { tournament: t } = await apiRequest(
+        `/api/v1/players/super8/${encodeURIComponent(tournament.id)}/pair-with`,
+        { method: "POST", body: { targetPlayerId } },
+      );
+      showToast(
+        `Dupla formada! ${t.name} (${t.players}/${t.size}).`,
       );
       closeModal($("[data-super8-player-detail-modal]"));
       openSuper8Screen();

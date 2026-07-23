@@ -302,9 +302,10 @@ em {
   box-shadow: none;
 }
 .brand-logo-surface--footer {
-  padding: 0;
-  background: transparent;
-  box-shadow: none;
+  padding: 5px 10px;
+  background: rgba(255, 254, 250, 0.92);
+  box-shadow: 0 2px 10px rgba(6, 12, 25, 0.18);
+  border-radius: 10px;
 }
 .brand-icon-crop {
   position: relative;
@@ -429,6 +430,9 @@ em {
   height: 42px;
   border: 0;
   background: transparent;
+}
+.nav-mobile-actions {
+  display: none;
 }
 .menu-toggle span,
 .app-menu-toggle span {
@@ -5183,6 +5187,18 @@ button.match-player-row:focus-visible strong {
   .site-nav.menu-open .marketing-links a {
     padding: 11px 0;
     border-top: 1px solid var(--line);
+  }
+  .site-nav.menu-open .nav-mobile-actions {
+    display: flex;
+    width: 100%;
+    gap: 10px;
+    order: 4;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    color: var(--ink);
+  }
+  .site-nav.menu-open .nav-mobile-actions .button-ghost {
+    color: var(--ink);
   }
   .hero,
   .hero-layout {

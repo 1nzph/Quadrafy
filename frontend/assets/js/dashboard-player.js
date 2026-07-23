@@ -1928,9 +1928,7 @@
     if (eyebrow) eyebrow.textContent = `Super ${tournament.size}`;
     $("[data-super8-player-detail-title]").textContent = tournament.name;
     const modeLabel =
-      tournament.mode === "duplas_fixas"
-        ? "Duplas fixas"
-        : "Cada um por si (rotação)";
+      tournament.mode === "duplas_fixas" ? "Duplas fixas" : "Rotação";
     const categoriesLabel = tournament.levelCategories
       ? tournament.levelCategories.join(", ")
       : "Todas as categorias";
@@ -1958,7 +1956,6 @@
         <div><small>Modalidade</small><strong>${escapeHTML(modeLabel)}</strong></div>
         <div><small>Gênero</small><strong>${escapeHTML(genderLabel)}</strong></div>
         <div><small>Categorias</small><strong>${escapeHTML(categoriesLabel)}</strong></div>
-        <div><small>Quadras</small><strong>${courtsLabel}</strong></div>
       </div>
       <div class="super8-section"><p class="micro-label">Jogadores confirmados (${tournament.players.length}/${tournament.size})</p>${rosterHTML}</div>`;
 

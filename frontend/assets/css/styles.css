@@ -4201,32 +4201,32 @@ em {
 .match-detail-info-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin: 0 0 22px;
+  gap: 6px;
+  margin: 0 0 14px;
 }
 .match-detail-info-row > div {
   display: flex;
-  min-height: 68px;
+  min-height: 52px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 5px;
+  gap: 4px;
   border: 1.5px solid var(--orange);
   border-radius: 10px;
-  padding: 12px 8px;
+  padding: 7px 5px;
   background: var(--paper);
   box-shadow: 0 1px 3px rgba(249,115,22,0.08);
 }
 .match-detail-info-row small {
   color: var(--ink-soft);
-  font-size: 9px;
+  font-size: 8px;
   font-family: var(--mono);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 .match-detail-info-row strong {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--ink);
   line-height: 1.2;
@@ -4257,15 +4257,15 @@ em {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: stretch;
   gap: 7px;
-  margin: 18px 0 22px;
+  margin: 12px 0 20px;
 }
 .match-team {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 10px;
+  padding: 14px;
 }
 .match-team-label {
   color: var(--ink-soft);
@@ -4283,7 +4283,7 @@ em {
 }
 .match-player-row {
   display: grid;
-  grid-template-columns: 34px 1fr auto;
+  grid-template-columns: 40px 1fr auto;
   align-items: center;
   gap: 10px;
   border-top: 1px solid var(--line);
@@ -4323,6 +4323,15 @@ button.match-position-empty {
   color: var(--ink);
   font-size: 9px;
 }
+[data-match-detail-content] h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
 .match-edit-teams-title {
   margin: 12px 0 6px;
   font-size: 13px;
@@ -4340,24 +4349,24 @@ button.match-position-empty {
 }
 .match-player-row > span:first-child {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border-radius: 50%;
   background: var(--indigo);
   color: #fff;
-  font: 600 8px/1 var(--mono);
+  font: 600 9px/1 var(--mono);
 }
 .match-player-row strong,
 .match-player-row small {
   display: block;
 }
 .match-player-row strong {
-  font-size: 13px;
+  font-size: 14px;
 }
 .match-player-row small {
   color: var(--ink-soft);
-  font-size: 11px;
+  font-size: 12px;
 }
 button.match-player-row {
   width: 100%;

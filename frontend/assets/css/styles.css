@@ -2937,7 +2937,7 @@ em {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 50%;
-  background: var(--indigo);
+  background: var(--coral);
   color: #fff;
   font: 700 17px/1 var(--mono);
 }
@@ -3270,9 +3270,6 @@ em {
   border: 0;
   background: transparent;
   cursor: pointer;
-}
-.court-photo-preview {
-  border-radius: 12px;
 }
 .court-delete-modal > p:not(.eyebrow) {
   color: var(--ink-soft);
@@ -7307,4 +7304,70 @@ button.super8-open-row:focus-visible {
   color: var(--coral-dark);
   font-size: 12px;
   font-weight: 600;
+}
+
+/* ================================================================
+   Crop modal — enquadrar imagem antes do upload
+   ================================================================ */
+.crop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 14, 26, 0.78);
+  padding: 16px;
+}
+.crop-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  background: var(--indigo-deep);
+  border-radius: var(--radius);
+  padding: 24px 20px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: var(--shadow-lg);
+}
+.crop-title {
+  margin: 0;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.crop-canvas-wrap {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  width: 340px;
+  height: 340px;
+  flex-shrink: 0;
+}
+.crop-canvas {
+  display: block;
+  width: 340px;
+  height: 340px;
+  cursor: grab;
+  touch-action: none;
+}
+.crop-canvas:active {
+  cursor: grabbing;
+}
+.crop-hint {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+  text-align: center;
+}
+.crop-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+.crop-actions .button {
+  flex: 1;
 }

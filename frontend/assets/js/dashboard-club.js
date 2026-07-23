@@ -13,6 +13,7 @@
     hydrateIcons,
     icon,
     loadDashboard,
+    openCropModal,
     openModal,
     showGenericModal,
     showToast,
@@ -31,8 +32,8 @@
     schedulePeriod: "day",
     schedule: null,
     editingCourtId: null,
-    courtPreviewObjectUrl: null,
     clubPreviewObjectUrl: null,
+    clubCroppedFile: null,
   };
 
   const emptyState = (title, text) =>
@@ -1292,33 +1293,9 @@
     feedback.classList.toggle("success", Boolean(message) && success);
   }
 
-  function clearCourtPhotoObjectUrl() {
-    if (!state.courtPreviewObjectUrl) return;
-    URL.revokeObjectURL(state.courtPreviewObjectUrl);
-    state.courtPreviewObjectUrl = null;
-  }
-
-  function setCourtPhotoPreview(url, name = "Quadra") {
-    const image = $("[data-court-photo-preview]");
-    const placeholder = $("[data-court-photo-placeholder]");
-    if (!image || !placeholder) return;
-    const safeUrl = url?.startsWith("blob:") ? url : safePhotoUrl(url);
-    image.hidden = !safeUrl;
-    image.src = safeUrl || "";
-    placeholder.hidden = Boolean(safeUrl);
-    placeholder.textContent = String(name || "QD")
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase();
-  }
-
   function configureCourtForm(court = null) {
     const form = $("[data-court-form]");
     state.editingCourtId = court?.id || null;
-    clearCourtPhotoObjectUrl();
     form.reset();
     form.elements.name.value = court?.name || "";
     form.elements.price.value = court?.price ?? "";
@@ -1327,8 +1304,6 @@
     form.elements.slotDuration.value = String(
       court ? courtSlotDuration(court) : 60,
     );
-    form.elements.photo.value = "";
-    setCourtPhotoPreview(court?.photoUrl, court?.name);
     $("[data-court-eyebrow]").textContent = court
       ? "Editar quadra"
       : "Nova quadra";
@@ -1361,34 +1336,6 @@
     requestAnimationFrame(() => $("[data-court-form] [name='name']")?.focus());
   }
 
-  function previewCourtPhoto(event) {
-    const [file] = event.currentTarget.files || [];
-    clearCourtPhotoObjectUrl();
-    const court = state.courts.find(
-      (item) => item.id === state.editingCourtId,
-    );
-    if (!file) {
-      setCourtPhotoPreview(court?.photoUrl, court?.name);
-      setUploadFeedback("court");
-      return;
-    }
-    try {
-      validateImageFile(file);
-      state.courtPreviewObjectUrl = URL.createObjectURL(file);
-      setCourtPhotoPreview(
-        state.courtPreviewObjectUrl,
-        $("[data-court-form]").elements.name.value,
-      );
-      setUploadFeedback("court", { selected: true });
-    } catch (error) {
-      // TASK-65: erro exibido junto do preview, sem manter o arquivo
-      event.currentTarget.value = "";
-      setCourtPhotoPreview(court?.photoUrl, court?.name);
-      setUploadFeedback("court", { error: error.message });
-      showToast(error.message);
-    }
-  }
-
   // TASKS-15 / TASK-65 — feedback padrão das áreas de upload do clube.
   function setUploadFeedback(kind, { error = "", selected = false } = {}) {
     const note = $(`[data-${kind}-photo-error]`);
@@ -1399,21 +1346,11 @@
     $(`[data-${kind}-photo-clear]`)?.classList.toggle("hidden", !selected);
   }
 
-  function clearSelectedCourtPhoto() {
-    const input = $("[data-court-photo-input]");
-    if (input) input.value = "";
-    clearCourtPhotoObjectUrl();
-    const court = state.courts.find(
-      (item) => item.id === state.editingCourtId,
-    );
-    setCourtPhotoPreview(court?.photoUrl, court?.name);
-    setUploadFeedback("court");
-  }
-
   function clearSelectedClubPhoto() {
     const input = $("[data-club-photo-input]");
     if (input) input.value = "";
     clearClubPhotoObjectUrl();
+    state.clubCroppedFile = null;
     setClubPhotoPreview(state.club?.photoUrl, state.club?.name);
     setUploadFeedback("club");
   }
@@ -1424,8 +1361,6 @@
     if (!form.checkValidity()) return form.reportValidity();
     const button = $("[data-court-submit]", form);
     const formData = new FormData(form);
-    const photo = formData.get("photo");
-    formData.delete("photo");
     const values = Object.fromEntries(formData.entries());
     const body = {
       name: values.name.trim(),
@@ -1462,12 +1397,6 @@
     try {
       let court;
       if (state.editingCourtId) {
-        if (photo instanceof File && photo.size > 0) {
-          button.textContent = "Enviando imagem…";
-          body.photoUrl = (
-            await uploadImage(photo, "court", state.editingCourtId)
-          ).url;
-        }
         ({ court } = await apiRequest(
           `/api/v1/club/courts/${encodeURIComponent(state.editingCourtId)}`,
           { method: "PATCH", body },
@@ -1477,20 +1406,11 @@
           method: "POST",
           body,
         }));
-        if (photo instanceof File && photo.size > 0) {
-          button.textContent = "Enviando imagem…";
-          body.photoUrl = (await uploadImage(photo, "court", court.id)).url;
-          ({ court } = await apiRequest(
-            `/api/v1/club/courts/${encodeURIComponent(court.id)}`,
-            { method: "PATCH", body },
-          ));
-        }
       }
       const index = state.courts.findIndex((item) => item.id === court.id);
       if (index === -1) state.courts.push(court);
       else state.courts[index] = court;
       renderCourts();
-      clearCourtPhotoObjectUrl();
       closeModal($("[data-court-modal]"));
       await refreshDashboard();
       openManagement();
@@ -1566,14 +1486,6 @@
     populateHalfHourSelect($("[data-court-open-time]"), "06:00");
     populateHalfHourSelect($("[data-court-close-time]"), "23:00");
     $("[data-add-court]")?.addEventListener("click", openCourtCreator);
-    $("[data-court-photo-clear]")?.addEventListener(
-      "click",
-      clearSelectedCourtPhoto,
-    );
-    $("[data-court-photo-input]")?.addEventListener(
-      "change",
-      previewCourtPhoto,
-    );
     $("[data-court-form]")?.addEventListener("submit", saveCourt);
     $("[data-court-delete-open]")?.addEventListener(
       "click",
@@ -1645,23 +1557,32 @@
   }
 
   function previewClubPhoto(event) {
-    const [file] = event.currentTarget.files || [];
-    clearClubPhotoObjectUrl();
+    const input = event.currentTarget;
+    const [file] = input.files || [];
     if (!file) {
+      clearClubPhotoObjectUrl();
+      state.clubCroppedFile = null;
       setClubPhotoPreview(state.club?.photoUrl, state.club?.name);
       setUploadFeedback("club");
       return;
     }
     try {
       validateImageFile(file);
-      state.clubPreviewObjectUrl = URL.createObjectURL(file);
-      setClubPhotoPreview(
-        state.clubPreviewObjectUrl,
-        $("[data-setting-name]").value,
-      );
-      setUploadFeedback("club", { selected: true });
+      input.value = "";
+      openCropModal(file, (blob) => {
+        clearClubPhotoObjectUrl();
+        state.clubCroppedFile = blob;
+        state.clubPreviewObjectUrl = URL.createObjectURL(blob);
+        setClubPhotoPreview(
+          state.clubPreviewObjectUrl,
+          $("[data-setting-name]").value,
+        );
+        setUploadFeedback("club", { selected: true });
+      });
     } catch (error) {
-      event.currentTarget.value = "";
+      input.value = "";
+      clearClubPhotoObjectUrl();
+      state.clubCroppedFile = null;
       setClubPhotoPreview(state.club?.photoUrl, state.club?.name);
       setUploadFeedback("club", { error: error.message });
       showToast(error.message);
@@ -1692,11 +1613,10 @@
         button.disabled = true;
         try {
           let photoUrl = state.club.photoUrl || "";
-          if (photo instanceof File && photo.size > 0) {
+          const photoFile = state.clubCroppedFile || (photo instanceof File && photo.size > 0 ? photo : null);
+          if (photoFile) {
             button.textContent = "Enviando imagem…";
-            photoUrl = (
-              await uploadImage(photo, "club", state.club.id)
-            ).url;
+            photoUrl = (await uploadImage(photoFile, "club", state.club.id)).url;
           }
           button.textContent = "Salvando…";
           const data = await apiRequest("/api/v1/club/profile", {
@@ -1712,6 +1632,7 @@
           state.club = data.club;
           state.session.club = data.club;
           state.session.identity.arenaName = data.club.name;
+          state.clubCroppedFile = null;
           clearClubPhotoObjectUrl();
           renderArena();
           openManagement();

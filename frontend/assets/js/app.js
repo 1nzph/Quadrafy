@@ -165,6 +165,189 @@
     });
   }
 
+  function openCropModal(file, onCrop) {
+    const CANVAS = 340;
+    const RADIUS = 160;
+    const CENTER = CANVAS / 2;
+
+    const overlay = document.createElement("div");
+    overlay.className = "crop-overlay";
+    overlay.innerHTML = `
+      <div class="crop-modal">
+        <p class="crop-title">Enquadrar imagem</p>
+        <div class="crop-canvas-wrap">
+          <canvas class="crop-canvas" width="${CANVAS}" height="${CANVAS}"></canvas>
+        </div>
+        <p class="crop-hint">Arraste para mover · Scroll para zoom</p>
+        <div class="crop-actions">
+          <button type="button" class="button button-ghost crop-cancel">Cancelar</button>
+          <button type="button" class="button button-primary crop-confirm">Confirmar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    document.body.classList.add("modal-open");
+
+    const canvas = overlay.querySelector(".crop-canvas");
+    const ctx = canvas.getContext("2d");
+    let img, scale, offsetX, offsetY;
+    let isDragging = false, lastX = 0, lastY = 0;
+
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      img = image;
+      const minScale = Math.max(CANVAS / img.width, CANVAS / img.height);
+      scale = minScale;
+      offsetX = (CANVAS - img.width * scale) / 2;
+      offsetY = (CANVAS - img.height * scale) / 2;
+      render();
+    };
+    image.src = objectUrl;
+
+    function clampOffset() {
+      const iw = img.width * scale;
+      const ih = img.height * scale;
+      const cropL = CENTER - RADIUS;
+      const cropR = CENTER + RADIUS;
+      const cropT = CENTER - RADIUS;
+      const cropB = CENTER + RADIUS;
+      if (offsetX > cropL) offsetX = cropL;
+      if (offsetX + iw < cropR) offsetX = cropR - iw;
+      if (offsetY > cropT) offsetY = cropT;
+      if (offsetY + ih < cropB) offsetY = cropB - ih;
+    }
+
+    function render() {
+      if (!img) return;
+      ctx.clearRect(0, 0, CANVAS, CANVAS);
+      ctx.drawImage(img, offsetX, offsetY, img.width * scale, img.height * scale);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, CANVAS, CANVAS);
+      ctx.arc(CENTER, CENTER, RADIUS, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0,0,0,0.55)";
+      ctx.fill("evenodd");
+      ctx.restore();
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,255,255,0.85)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(CENTER, CENTER, RADIUS, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function onMouseMove(e) {
+      if (!isDragging || !img) return;
+      offsetX += e.clientX - lastX;
+      offsetY += e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      clampOffset();
+      render();
+    }
+    function onMouseUp() {
+      isDragging = false;
+      canvas.style.cursor = "grab";
+    }
+    canvas.addEventListener("mousedown", (e) => {
+      isDragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      canvas.style.cursor = "grabbing";
+    });
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+
+    canvas.addEventListener("wheel", (e) => {
+      if (!img) return;
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 0.92 : 1.08;
+      const minScale = Math.max(CANVAS / img.width, CANVAS / img.height);
+      const newScale = Math.max(minScale, scale * factor);
+      offsetX = CENTER - (CENTER - offsetX) * (newScale / scale);
+      offsetY = CENTER - (CENTER - offsetY) * (newScale / scale);
+      scale = newScale;
+      clampOffset();
+      render();
+    }, { passive: false });
+
+    let lastTouches = [];
+    canvas.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      lastTouches = Array.from(e.touches).map((t) => ({ x: t.clientX, y: t.clientY }));
+    }, { passive: false });
+    canvas.addEventListener("touchmove", (e) => {
+      if (!img) return;
+      e.preventDefault();
+      const touches = Array.from(e.touches).map((t) => ({ x: t.clientX, y: t.clientY }));
+      if (touches.length === 1 && lastTouches.length >= 1) {
+        offsetX += touches[0].x - lastTouches[0].x;
+        offsetY += touches[0].y - lastTouches[0].y;
+        clampOffset();
+        render();
+      } else if (touches.length === 2 && lastTouches.length === 2) {
+        const prevDist = Math.hypot(lastTouches[1].x - lastTouches[0].x, lastTouches[1].y - lastTouches[0].y);
+        const currDist = Math.hypot(touches[1].x - touches[0].x, touches[1].y - touches[0].y);
+        if (prevDist > 0) {
+          const rect = canvas.getBoundingClientRect();
+          const cx = ((touches[0].x + touches[1].x) / 2) - rect.left;
+          const cy = ((touches[0].y + touches[1].y) / 2) - rect.top;
+          const minScale = Math.max(CANVAS / img.width, CANVAS / img.height);
+          const newScale = Math.max(minScale, scale * (currDist / prevDist));
+          offsetX = cx - (cx - offsetX) * (newScale / scale);
+          offsetY = cy - (cy - offsetY) * (newScale / scale);
+          scale = newScale;
+          clampOffset();
+          render();
+        }
+      }
+      lastTouches = touches;
+    }, { passive: false });
+
+    function close() {
+      overlay.remove();
+      document.body.classList.remove("modal-open");
+      URL.revokeObjectURL(objectUrl);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    }
+
+    function confirm() {
+      if (!img) return;
+      const OUTPUT = 400;
+      const cropDiam = RADIUS * 2;
+      const cropL = CENTER - RADIUS;
+      const cropT = CENTER - RADIUS;
+      const factor = OUTPUT / cropDiam;
+      const outCanvas = document.createElement("canvas");
+      outCanvas.width = OUTPUT;
+      outCanvas.height = OUTPUT;
+      const outCtx = outCanvas.getContext("2d");
+      outCtx.save();
+      outCtx.beginPath();
+      outCtx.arc(OUTPUT / 2, OUTPUT / 2, OUTPUT / 2, 0, Math.PI * 2);
+      outCtx.clip();
+      outCtx.drawImage(
+        img,
+        (offsetX - cropL) * factor,
+        (offsetY - cropT) * factor,
+        img.width * scale * factor,
+        img.height * scale * factor,
+      );
+      outCtx.restore();
+      outCanvas.toBlob((blob) => {
+        close();
+        if (blob) onCrop(blob);
+      }, "image/jpeg", 0.92);
+    }
+
+    overlay.querySelector(".crop-cancel").addEventListener("click", close);
+    overlay.querySelector(".crop-confirm").addEventListener("click", confirm);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  }
+
   function showGenericModal({ eyebrow = "Quadrafy", title, text }) {
     const modal = $("[data-generic-modal]");
     const content = $("[data-generic-content]", modal);
@@ -435,6 +618,7 @@
     hydrateIcons,
     icon,
     loadDashboard,
+    openCropModal,
     openModal,
     showGenericModal,
     showToast,

@@ -14,6 +14,7 @@
     hydrateIcons,
     icon,
     loadDashboard,
+    openCropModal,
     openModal,
     showGenericModal,
     showToast,
@@ -47,6 +48,7 @@
     levelTestRequired: false,
     lastFocusedElement: null,
     profilePreviewObjectUrl: null,
+    profileCroppedFile: null,
     achievements: [],
     achievementCatalog: [],
     super8Open: [],
@@ -3770,27 +3772,35 @@
     const input = $("[data-player-photo-input]");
     if (input) input.value = "";
     clearPlayerPhotoObjectUrl();
+    state.profileCroppedFile = null;
     setPlayerPhotoPreview(state.session?.user?.profile?.photoUrl);
     setPlayerPhotoFeedback();
   }
 
   function previewPlayerPhoto(event) {
-    const [file] = event.currentTarget.files || [];
-    clearPlayerPhotoObjectUrl();
+    const input = event.currentTarget;
+    const [file] = input.files || [];
     if (!file) {
+      clearPlayerPhotoObjectUrl();
+      state.profileCroppedFile = null;
       setPlayerPhotoPreview(state.session?.user?.profile?.photoUrl);
       setPlayerPhotoFeedback();
       return;
     }
     try {
       validateImageFile(file);
-      state.profilePreviewObjectUrl = URL.createObjectURL(file);
-      setPlayerPhotoPreview(state.profilePreviewObjectUrl);
-      setPlayerPhotoFeedback({ selected: true });
+      input.value = "";
+      openCropModal(file, (blob) => {
+        clearPlayerPhotoObjectUrl();
+        state.profileCroppedFile = blob;
+        state.profilePreviewObjectUrl = URL.createObjectURL(blob);
+        setPlayerPhotoPreview(state.profilePreviewObjectUrl);
+        setPlayerPhotoFeedback({ selected: true });
+      });
     } catch (error) {
-      // TASK-65: o arquivo inválido NÃO fica selecionado e o erro aparece
-      // junto da área de preview (além do toast), sem sugerir aceitação.
-      event.currentTarget.value = "";
+      input.value = "";
+      clearPlayerPhotoObjectUrl();
+      state.profileCroppedFile = null;
       setPlayerPhotoPreview(state.session?.user?.profile?.photoUrl);
       setPlayerPhotoFeedback({ error: error.message });
       showToast(error.message);
@@ -3869,10 +3879,10 @@
     ).map((input) => input.value);
     setBusy(button, true, "Salvando…");
     try {
-      if (photo instanceof File && photo.size > 0) {
-        validateImageFile(photo);
+      const photoFile = state.profileCroppedFile || (photo instanceof File && photo.size > 0 ? photo : null);
+      if (photoFile) {
         setBusy(button, true, "Enviando imagem…");
-        const { url } = await uploadImage(photo, "player");
+        const { url } = await uploadImage(photoFile, "player");
         body.photoUrl = url;
         setBusy(button, true, "Salvando…");
       }
@@ -3881,6 +3891,7 @@
         body,
       });
       state.session.user = user;
+      state.profileCroppedFile = null;
       clearPlayerPhotoObjectUrl();
       renderProfile();
       closeModal($("[data-profile-edit-modal]"));

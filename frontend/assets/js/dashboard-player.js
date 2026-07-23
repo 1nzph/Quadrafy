@@ -1726,14 +1726,13 @@
       <div class="match-detail-header">
         <div class="match-detail-title-row">
           <h2 class="match-detail-club-name">${escapeHTML(match.clubName)}</h2>
-          ${match.courtName ? `<span class="match-detail-court-name">· ${escapeHTML(match.courtName)}</span>` : ""}
         </div>
-        <p class="match-detail-datetime">${escapeHTML(matchDayStr(match.startAt))} · ${escapeHTML(slotTimeRange(match.startAt, match.slotDuration))} · ${escapeHTML(formatDuration(match.slotDuration))}</p>
+        <p class="match-detail-datetime">${escapeHTML(matchDayStr(match.startAt))} · ${escapeHTML(slotTimeRange(match.startAt, match.slotDuration))} · ${escapeHTML(formatDuration(match.slotDuration))}${match.courtName ? ` · ${escapeHTML(match.courtName)}` : ""}</p>
         <div class="match-card-badges">${genderCategoryBadge(match)}${catBadge}</div>
       </div>
       <div class="match-detail-info-row">
         <div><small>Gênero</small><strong>${escapeHTML(genderLabel)}</strong></div>
-        <div><small>Categoria</small><strong>${escapeHTML(levelCatStr)}</strong>${levelRange ? `<small class="level-range-label">${escapeHTML(levelRange)}</small>` : ""}</div>
+        <div><small>Nível</small><strong>${escapeHTML(levelRange || "Todas")}</strong></div>
         <div><small>Jogadores</small><strong>${playerCount}/4</strong></div>
       </div>
       <h3>Jogadores</h3>

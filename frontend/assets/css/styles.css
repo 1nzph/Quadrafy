@@ -6883,10 +6883,22 @@ button.match-player-row:focus-visible strong {
 .super8-partner-search {
   margin-top: 14px;
 }
+.super8-partner-input-wrap {
+  position: relative;
+}
+.super8-partner-input-wrap .input-group {
+  margin-bottom: 0;
+}
 .super8-search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
   border: 1px solid var(--line);
   border-radius: 10px;
-  margin-top: 6px;
+  background: var(--surface, #fff);
+  box-shadow: 0 6px 20px rgba(20, 23, 31, 0.13);
   overflow: hidden;
 }
 .super8-search-row {

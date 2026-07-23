@@ -2023,11 +2023,13 @@
         </button>
       </div>
       <div class="super8-partner-search hidden" data-partner-search>
-        <label class="input-group">
-          <span>Buscar parceiro(a)</span>
-          <input type="search" placeholder="Nome do jogador…" data-partner-input autocomplete="off" />
-        </label>
-        <div class="super8-search-results hidden" data-partner-results></div>
+        <div class="super8-partner-input-wrap" data-partner-input-area>
+          <label class="input-group">
+            <span>Buscar parceiro(a)</span>
+            <input type="search" placeholder="Nome do jogador…" data-partner-input autocomplete="off" />
+          </label>
+          <div class="super8-search-results hidden" data-partner-results></div>
+        </div>
         <div class="super8-selected-partner hidden" data-partner-selected></div>
         <button class="button button-primary button-block shine hidden" type="button" data-partner-confirm>
           Confirmar inscrição em dupla
@@ -2040,6 +2042,7 @@
     const pairBtn = $("[data-duplas-join='pair']", area);
     const soloBtn = $("[data-duplas-join='solo']", area);
     const searchBox = $("[data-partner-search]", area);
+    const inputArea = $("[data-partner-input-area]", area);
     const input = $("[data-partner-input]", area);
     const results = $("[data-partner-results]", area);
     const selectedDiv = $("[data-partner-selected]", area);
@@ -2092,6 +2095,7 @@
               input.value = "";
               results.innerHTML = "";
               results.classList.add("hidden");
+              inputArea.classList.add("hidden");
               selectedDiv.innerHTML = `<div class="match-player-row"><span>${escapeHTML(initialsFor(partnerName))}</span><div><strong>${escapeHTML(partnerName)}</strong><small>Parceiro(a) selecionado(a)</small></div><button class="button-ghost button-small" type="button" data-clear-partner style="margin-left:auto">Trocar</button></div>`;
               selectedDiv.classList.remove("hidden");
               confirmBtn.classList.remove("hidden");
@@ -2102,6 +2106,7 @@
                   selectedDiv.innerHTML = "";
                   selectedDiv.classList.add("hidden");
                   confirmBtn.classList.add("hidden");
+                  inputArea.classList.remove("hidden");
                   input.value = "";
                   input.focus();
                 },

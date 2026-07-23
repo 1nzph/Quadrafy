@@ -4195,8 +4195,8 @@ em {
 }
 .match-detail-datetime {
   margin: 0 0 8px;
-  color: var(--ink-soft);
-  font-size: 12px;
+  color: var(--ink);
+  font-size: 13px;
 }
 .match-detail-info-row {
   display: grid;
@@ -6658,6 +6658,10 @@ button.match-player-row:focus-visible strong {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+.match-detail-header .match-card-badges .status-badge {
+  font-size: 11px;
+  padding: 5px 10px;
 }
 .gender-badge {
   font-weight: 700;

@@ -1,0 +1,25 @@
+name: Deploy para a VPS Hostinger
+
+on:
+  push:
+    branches:
+      - main  # Altere para master se a sua branch principal tiver esse nome
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Executar comandos na VPS via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            cd /var/www/backend
+            git pull origin main
+            docker build -t app-backend .
+            docker stop backend-container || true
+            docker rm backend-container || true
+            docker run -d --name backend-container -p 80:4173 --env-file .env --restart always app-backend

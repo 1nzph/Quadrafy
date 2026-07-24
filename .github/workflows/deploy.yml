@@ -22,4 +22,5 @@ jobs:
             docker build -t app-backend .
             docker stop backend-container || true
             docker rm backend-container || true
-            docker run -d --name backend-container -p 80:4173 --env-file .env --restart always app-backend
+            mkdir -p /var/www/backend/data
+            docker run -d --name backend-container -p 80:4173 --env-file .env -v /var/www/backend/data:/app/backend/data --restart always app-backend

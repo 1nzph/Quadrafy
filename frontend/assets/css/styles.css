@@ -3100,6 +3100,74 @@ em {
   font: 700 28px/1 var(--mono);
   background: var(--indigo);
 }
+.club-info-section {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+.club-info-section:last-child {
+  border-bottom: none;
+}
+.club-info-section .eyebrow {
+  margin-bottom: 12px;
+}
+.club-info-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.club-info-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 14px;
+}
+.club-info-list li > span:first-child {
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+.club-info-list li > span:last-child {
+  text-align: right;
+  font-weight: 500;
+}
+.club-info-list li a {
+  color: var(--coral);
+  text-decoration: none;
+}
+.club-info-court {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+.club-info-court strong {
+  display: block;
+  font-size: 15px;
+  margin-bottom: 10px;
+}
+.club-info-court ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.club-info-court ul li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.club-info-court ul li > span:first-child {
+  color: var(--ink-soft);
+}
+.club-info-court ul li > span:last-child {
+  font-weight: 500;
+}
 .owner-arena-info {
   display: flex;
   flex-direction: column;

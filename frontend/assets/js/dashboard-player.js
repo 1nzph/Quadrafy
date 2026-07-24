@@ -443,7 +443,7 @@
       );
     } else renderSlots();
     updateSelection();
-    // Wire segment tabs (Horários / Jogos em aberto / Super 8)
+    // Wire segment tabs (Horários / Jogos em aberto / Super 8 / Informações)
     $$("[data-club-segment]").forEach((button) =>
       button.addEventListener("click", () => {
         const seg = button.dataset.clubSegment;
@@ -453,12 +453,15 @@
         const isSlots = seg === "slots";
         const isMatches = seg === "matches";
         const isSuper8 = seg === "super8";
+        const isInfo = seg === "info";
         $("[data-club-slots-view]")?.classList.toggle("hidden", !isSlots);
         $("[data-club-matches-view]")?.classList.toggle("hidden", !isMatches);
         $("[data-club-super8-view]")?.classList.toggle("hidden", !isSuper8);
+        $("[data-club-info-view]")?.classList.toggle("hidden", !isInfo);
         $("[data-inline-selection]")?.classList.toggle("hidden", !isSlots || !state.selectedSlot);
         if (isMatches) renderClubMatches();
         if (isSuper8) renderClubSuper8();
+        if (isInfo) renderClubInfo();
       }),
     );
   }
@@ -579,6 +582,44 @@
         }
       });
     });
+  }
+
+  function renderClubInfo() {
+    const el = $("[data-club-info-view]");
+    if (!el) return;
+    const club = state.selectedClub?.club;
+    if (!club) return;
+
+    const phone = club.phone
+      ? `<a href="tel:${escapeHTML(club.phone)}">${escapeHTML(club.phone)}</a>`
+      : "Não informado";
+
+    const courts = (club.courts || [])
+      .map(
+        (court) => `
+        <div class="club-info-court">
+          <strong>${escapeHTML(court.name)}</strong>
+          <ul>
+            <li><span>Horário</span><span>${escapeHTML(court.opensAt || "—")} – ${escapeHTML(court.closesAt || "—")}</span></li>
+            <li><span>Duração do slot</span><span>${court.slotDurationMinutes || court.slotDuration || "—"} min</span></li>
+            <li><span>Valor de referência</span><span>${court.price != null ? formatCurrency(court.price) + "/h" : "—"}</span></li>
+          </ul>
+        </div>`,
+      )
+      .join("");
+
+    el.innerHTML = `
+      <div class="club-info-section">
+        <p class="eyebrow dark">Geral</p>
+        <ul class="club-info-list">
+          <li><span>Nome</span><span>${escapeHTML(club.name)}</span></li>
+          <li><span>Endereço</span><span>${escapeHTML(club.address || "Não informado")}</span></li>
+          <li><span>Telefone</span><span>${phone}</span></li>
+          ${club.description ? `<li><span>Sobre</span><span>${escapeHTML(club.description)}</span></li>` : ""}
+        </ul>
+      </div>
+      ${courts ? `<div class="club-info-section"><p class="eyebrow dark">Quadras e Funcionamento</p>${courts}</div>` : ""}
+    `;
   }
 
   function updateSelection() {

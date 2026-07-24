@@ -1751,9 +1751,11 @@
               businessHours: state.club?.businessHours ?? null,
             },
           });
-          state.club = data.club;
-          state.session.club = data.club;
-          state.session.identity.arenaName = data.club.name;
+          state.club = photoFile && data.club.photoUrl
+            ? { ...data.club, photoUrl: data.club.photoUrl + "?v=" + Date.now() }
+            : data.club;
+          state.session.club = state.club;
+          state.session.identity.arenaName = state.club.name;
           state.clubCroppedFile = null;
           clearClubPhotoObjectUrl();
           renderArena();

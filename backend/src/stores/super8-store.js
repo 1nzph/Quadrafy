@@ -56,7 +56,7 @@ export class Super8Store {
     return this.tournaments
       .filter(
         (entry) =>
-          ["em_andamento", "finalizado"].includes(entry.status) &&
+          ["inscricoes_abertas", "em_andamento", "finalizado"].includes(entry.status) &&
           entry.players.some((player) => player.id === playerId),
       )
       .sort(

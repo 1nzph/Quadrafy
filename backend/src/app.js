@@ -3487,6 +3487,7 @@ export async function createApp(overrides = {}) {
           (tournament) =>
             tournament.status === "inscricoes_abertas" &&
             tournament.players.length < tournament.size &&
+            !tournament.players.some((p) => p.id === user.id) &&
             // TASK-77 — esconde torneios fora da categoria do jogador.
             (!tournament.levelCategories ||
               (myCategory && tournament.levelCategories.includes(myCategory))),

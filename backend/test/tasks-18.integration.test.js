@@ -299,15 +299,24 @@ test("TASK-77: categorias de nível permitidas bloqueiam adição manual, inscri
         (item) => item.id === tournament.id,
       ),
     );
-    // ...e aparece para quem está dentro, com as categorias visíveis
+    // ...e NÃO aparece na lista aberta para quem já está inscrito (vai para "Inscrito")
     const openForHigh = await api("/api/v1/players/super8/open", {
       cookie: highPlayer.cookie,
     });
-    const visible = (await openForHigh.json()).data.tournaments.find(
+    assert.ok(
+      !(await openForHigh.json()).data.tournaments.some(
+        (item) => item.id === tournament.id,
+      ),
+    );
+    // mas aparece na lista de inscritos do jogador (com as categorias visíveis)
+    const mineForHigh = await api("/api/v1/players/super8/mine", {
+      cookie: highPlayer.cookie,
+    });
+    const inscribed = (await mineForHigh.json()).data.tournaments.find(
       (item) => item.id === tournament.id,
     );
-    assert.ok(visible);
-    assert.deepEqual(visible.levelCategories, ["Avançado"]);
+    assert.ok(inscribed);
+    assert.deepEqual(inscribed.levelCategories, ["Avançado"]);
 
     // inscrição espontânea do jogador compatível funciona normalmente
     const okJoin = await api(`/api/v1/players/super8/${tournament.id}/join`, {

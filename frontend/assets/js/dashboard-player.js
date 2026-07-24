@@ -594,19 +594,31 @@
       ? `<a href="tel:${escapeHTML(club.phone)}">${escapeHTML(club.phone)}</a>`
       : "Não informado";
 
-    const courts = (club.courts || [])
-      .map(
-        (court) => `
-        <div class="club-info-court">
-          <strong>${escapeHTML(court.name)}</strong>
-          <ul>
-            <li><span>Horário</span><span>${escapeHTML(court.opensAt || "—")} – ${escapeHTML(court.closesAt || "—")}</span></li>
-            <li><span>Duração do slot</span><span>${court.slotDurationMinutes || court.slotDuration || "—"} min</span></li>
-            <li><span>Valor de referência</span><span>${court.price != null ? formatCurrency(court.price) + "/h" : "—"}</span></li>
-          </ul>
-        </div>`,
-      )
-      .join("");
+    const BIZ_DAYS = [
+      { key: "sun", label: "Domingo" },
+      { key: "mon", label: "Segunda" },
+      { key: "tue", label: "Terça" },
+      { key: "wed", label: "Quarta" },
+      { key: "thu", label: "Quinta" },
+      { key: "fri", label: "Sexta" },
+      { key: "sat", label: "Sábado" },
+    ];
+    const bh = club.businessHours ?? {};
+    const bizRows = BIZ_DAYS.map(({ key, label }) => {
+      const entry = bh[key];
+      const isOpen = entry?.open;
+      return `<li class="${isOpen ? "" : "biz-closed"}">
+        <span>${escapeHTML(label)}</span>
+        <span>${isOpen ? `${escapeHTML(entry.start)} – ${escapeHTML(entry.end)}` : "Fechado"}</span>
+      </li>`;
+    }).join("");
+
+    const bizSection = bizRows
+      ? `<div class="club-info-section">
+          <p class="eyebrow dark">Funcionamento</p>
+          <ul class="club-info-list club-info-biz">${bizRows}</ul>
+        </div>`
+      : "";
 
     el.innerHTML = `
       <div class="club-info-section">
@@ -618,7 +630,7 @@
           ${club.description ? `<li><span>Sobre</span><span>${escapeHTML(club.description)}</span></li>` : ""}
         </ul>
       </div>
-      ${courts ? `<div class="club-info-section"><p class="eyebrow dark">Quadras e Funcionamento</p>${courts}</div>` : ""}
+      ${bizSection}
     `;
   }
 

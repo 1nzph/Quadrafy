@@ -1850,7 +1850,6 @@
 
   async function openSuper8Screen() {
     const myId = state.session?.user?.id;
-    const mineList = $("[data-super8-mine-list]");
     const activeList = $("[data-super8-active-list]");
     const historyList = $("[data-super8-history-list]");
     const openList = $("[data-super8-open-list]");
@@ -1862,15 +1861,14 @@
       activeCount = active.length;
       const activeHTML = active.length
         ? active.map((t, i) => super8PlayerCard(t, myId, i)).join("")
-        : '<p class="profile-data-note">Nenhum Super 8 em andamento.</p>';
+        : '<p class="profile-data-note">Você ainda não está inscrito em nenhum Super 8.</p>';
       const historyHTML = history.length
         ? history.map((t, i) => super8PlayerCard(t, myId, i)).join("")
         : '<p class="profile-data-note">Nenhum Super 8 finalizado ainda.</p>';
-      if (mineList) mineList.innerHTML = activeHTML;
       if (activeList) activeList.innerHTML = activeHTML;
       if (historyList) historyList.innerHTML = historyHTML;
     } catch (error) {
-      if (mineList) mineList.innerHTML = `<p class="profile-data-note">${escapeHTML(error.message)}</p>`;
+      if (activeList) activeList.innerHTML = `<p class="profile-data-note">${escapeHTML(error.message)}</p>`;
     }
     // TASK-76: o botão de inscrição só aparece dentro da tela de detalhe —
     // a listagem é só um resumo clicável.
@@ -1880,7 +1878,7 @@
       updateSuper8NavCount(activeCount, state.super8Open.length);
       openList.innerHTML = state.super8Open.length
         ? state.super8Open.map(super8OpenCard).join("")
-        : '<p class="profile-data-note">Nenhum Super 8 com inscrições abertas no momento.</p>';
+        : '<p class="profile-data-note">Nenhum Super 8 em aberto no momento.</p>';
       $$("[data-super8-open-row]", openList).forEach((row) => {
         const open = () => {
           const tournament = state.super8Open.find(

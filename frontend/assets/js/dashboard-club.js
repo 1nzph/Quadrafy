@@ -1582,9 +1582,9 @@
     const placeholder = $("[data-club-photo-placeholder]");
     if (!image || !placeholder) return;
     const safeUrl = url?.startsWith("blob:") ? url : safePhotoUrl(url);
-    image.hidden = !safeUrl;
+    image.style.display = safeUrl ? "block" : "none";
     image.src = safeUrl || "";
-    placeholder.hidden = Boolean(safeUrl);
+    placeholder.style.display = safeUrl ? "none" : "";
     placeholder.textContent = String(name || "QF")
       .split(/\s+/)
       .filter(Boolean)

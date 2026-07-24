@@ -453,6 +453,7 @@
     super8State.players = [];
     $("[data-super8-form-note]").textContent = "";
     $("[data-super8-categories-grid]").classList.add("hidden");
+    $("[data-super8-date]").min = localDateKey();
     renderSuper8Players();
     renderSuper8Courts();
     openModal($("[data-super8-create-modal]"));
@@ -1056,6 +1057,7 @@
     const form = $("[data-super8-edit-form]");
     form.reset();
     form.elements.name.value = tournament.name;
+    $("[data-super8-edit-date]").min = localDateKey();
     $("[data-super8-edit-date]").value = tournament.date || "";
     $("[data-super8-edit-start-time]").value = tournament.startTime || "";
     const editGender = $("[data-super8-edit-gender]");

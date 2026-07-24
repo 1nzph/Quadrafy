@@ -2293,7 +2293,8 @@
         `Inscrição confirmada em ${tournament.name} (${tournament.players}/${tournament.size}).`,
       );
       closeModal($("[data-super8-player-detail-modal]"));
-      openSuper8Screen();
+      await openSuper8Screen();
+      switchSuper8Segment("mine");
     } catch (error) {
       showToast(error.message);
       if (button.isConnected) setBusy(button, false);
@@ -2311,7 +2312,8 @@
         `Inscrito(a) em ${tournament.name}. Aguardando um parceiro.`,
       );
       closeModal($("[data-super8-player-detail-modal]"));
-      openSuper8Screen();
+      await openSuper8Screen();
+      switchSuper8Segment("mine");
     } catch (error) {
       showToast(error.message);
       if (button.isConnected) setBusy(button, false);
@@ -2329,7 +2331,8 @@
         `Dupla inscrita em ${tournament.name} (${tournament.players}/${tournament.size}).`,
       );
       closeModal($("[data-super8-player-detail-modal]"));
-      openSuper8Screen();
+      await openSuper8Screen();
+      switchSuper8Segment("mine");
     } catch (error) {
       showToast(error.message);
       if (button.isConnected) setBusy(button, false);

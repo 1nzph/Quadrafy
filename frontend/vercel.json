@@ -3,11 +3,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://quadrafy.onrender.com/api/:path*"
+      "destination": "http://179.197.239.x/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://quadrafy.onrender.com/uploads/:path*"
+      "destination": "http://179.197.239.x/:path*"
     }
   ]
 }

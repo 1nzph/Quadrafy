@@ -165,18 +165,31 @@
     });
   }
 
-  function openCropModal(file, onCrop) {
-    const CANVAS = 340;
+  function openCropModal(file, onCrop, options = {}) {
+    const shape = options.shape || "circle";
+    const aspectRatio = options.aspectRatio || 1;
+
+    // rect mode: 340×190 canvas with a 300×150 crop zone (2:1 banner)
+    const CANVAS_W = 340;
+    const CROP_W = shape === "rect" ? 300 : 320;
+    const CROP_H = shape === "rect" ? Math.round(CROP_W / aspectRatio) : 320;
+    const CROP_X = shape === "rect" ? (CANVAS_W - CROP_W) / 2 : 0;
+    const CROP_Y = shape === "rect" ? 20 : 0;
+    const CANVAS_H = shape === "rect" ? CROP_H + 40 : 340;
+    const OUT_W = shape === "rect" ? 960 : 400;
+    const OUT_H = shape === "rect" ? Math.round(OUT_W / aspectRatio) : 400;
+
+    // circle-only constants (kept for compatibility)
     const RADIUS = 160;
-    const CENTER = CANVAS / 2;
+    const CENTER = 170;
 
     const overlay = document.createElement("div");
     overlay.className = "crop-overlay";
     overlay.innerHTML = `
       <div class="crop-modal">
         <p class="crop-title">Enquadrar imagem</p>
-        <div class="crop-canvas-wrap">
-          <canvas class="crop-canvas" width="${CANVAS}" height="${CANVAS}"></canvas>
+        <div class="crop-canvas-wrap" style="width:${CANVAS_W}px;height:${CANVAS_H}px">
+          <canvas class="crop-canvas" width="${CANVAS_W}" height="${CANVAS_H}" style="width:${CANVAS_W}px;height:${CANVAS_H}px"></canvas>
         </div>
         <p class="crop-hint">Arraste para mover · Scroll para zoom</p>
         <div class="crop-actions">
@@ -197,10 +210,17 @@
     const image = new Image();
     image.onload = () => {
       img = image;
-      const minScale = Math.max(CANVAS / img.width, CANVAS / img.height);
+      const minScale = shape === "rect"
+        ? Math.max(CROP_W / img.width, CROP_H / img.height)
+        : Math.max(CANVAS_W / img.width, CANVAS_H / img.height);
       scale = minScale;
-      offsetX = (CANVAS - img.width * scale) / 2;
-      offsetY = (CANVAS - img.height * scale) / 2;
+      if (shape === "rect") {
+        offsetX = CROP_X + (CROP_W - img.width * scale) / 2;
+        offsetY = CROP_Y + (CROP_H - img.height * scale) / 2;
+      } else {
+        offsetX = (CANVAS_W - img.width * scale) / 2;
+        offsetY = (CANVAS_H - img.height * scale) / 2;
+      }
       render();
     };
     image.src = objectUrl;
@@ -208,10 +228,10 @@
     function clampOffset() {
       const iw = img.width * scale;
       const ih = img.height * scale;
-      const cropL = CENTER - RADIUS;
-      const cropR = CENTER + RADIUS;
-      const cropT = CENTER - RADIUS;
-      const cropB = CENTER + RADIUS;
+      const cropL = shape === "rect" ? CROP_X : CENTER - RADIUS;
+      const cropR = shape === "rect" ? CROP_X + CROP_W : CENTER + RADIUS;
+      const cropT = shape === "rect" ? CROP_Y : CENTER - RADIUS;
+      const cropB = shape === "rect" ? CROP_Y + CROP_H : CENTER + RADIUS;
       if (offsetX > cropL) offsetX = cropL;
       if (offsetX + iw < cropR) offsetX = cropR - iw;
       if (offsetY > cropT) offsetY = cropT;
@@ -220,21 +240,34 @@
 
     function render() {
       if (!img) return;
-      ctx.clearRect(0, 0, CANVAS, CANVAS);
+      ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
       ctx.drawImage(img, offsetX, offsetY, img.width * scale, img.height * scale);
       ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, 0, CANVAS, CANVAS);
-      ctx.arc(CENTER, CENTER, RADIUS, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0,0,0,0.55)";
-      ctx.fill("evenodd");
-      ctx.restore();
-      ctx.save();
-      ctx.strokeStyle = "rgba(255,255,255,0.85)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(CENTER, CENTER, RADIUS, 0, Math.PI * 2);
-      ctx.stroke();
+      if (shape === "rect") {
+        ctx.beginPath();
+        ctx.rect(0, 0, CANVAS_W, CANVAS_H);
+        ctx.rect(CROP_X, CROP_Y, CROP_W, CROP_H);
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        ctx.fill("evenodd");
+        ctx.restore();
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,255,255,0.85)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(CROP_X, CROP_Y, CROP_W, CROP_H);
+      } else {
+        ctx.beginPath();
+        ctx.rect(0, 0, CANVAS_W, CANVAS_H);
+        ctx.arc(CENTER, CENTER, RADIUS, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        ctx.fill("evenodd");
+        ctx.restore();
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,255,255,0.85)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(CENTER, CENTER, RADIUS, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.restore();
     }
 
@@ -316,27 +349,37 @@
 
     function confirm() {
       if (!img) return;
-      const OUTPUT = 400;
-      const cropDiam = RADIUS * 2;
-      const cropL = CENTER - RADIUS;
-      const cropT = CENTER - RADIUS;
-      const factor = OUTPUT / cropDiam;
       const outCanvas = document.createElement("canvas");
-      outCanvas.width = OUTPUT;
-      outCanvas.height = OUTPUT;
+      outCanvas.width = OUT_W;
+      outCanvas.height = OUT_H;
       const outCtx = outCanvas.getContext("2d");
-      outCtx.save();
-      outCtx.beginPath();
-      outCtx.arc(OUTPUT / 2, OUTPUT / 2, OUTPUT / 2, 0, Math.PI * 2);
-      outCtx.clip();
-      outCtx.drawImage(
-        img,
-        (offsetX - cropL) * factor,
-        (offsetY - cropT) * factor,
-        img.width * scale * factor,
-        img.height * scale * factor,
-      );
-      outCtx.restore();
+      if (shape === "rect") {
+        const factor = OUT_W / CROP_W;
+        outCtx.drawImage(
+          img,
+          (offsetX - CROP_X) * factor,
+          (offsetY - CROP_Y) * factor,
+          img.width * scale * factor,
+          img.height * scale * factor,
+        );
+      } else {
+        const cropDiam = RADIUS * 2;
+        const cropL = CENTER - RADIUS;
+        const cropT = CENTER - RADIUS;
+        const factor = OUT_W / cropDiam;
+        outCtx.save();
+        outCtx.beginPath();
+        outCtx.arc(OUT_W / 2, OUT_H / 2, OUT_W / 2, 0, Math.PI * 2);
+        outCtx.clip();
+        outCtx.drawImage(
+          img,
+          (offsetX - cropL) * factor,
+          (offsetY - cropT) * factor,
+          img.width * scale * factor,
+          img.height * scale * factor,
+        );
+        outCtx.restore();
+      }
       outCanvas.toBlob((blob) => {
         close();
         if (blob) onCrop(blob);

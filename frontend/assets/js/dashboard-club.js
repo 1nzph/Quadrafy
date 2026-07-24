@@ -1616,7 +1616,7 @@
           $("[data-setting-name]").value,
         );
         setUploadFeedback("club", { selected: true });
-      });
+      }, { shape: "rect", aspectRatio: 2 });
     } catch (error) {
       input.value = "";
       clearClubPhotoObjectUrl();

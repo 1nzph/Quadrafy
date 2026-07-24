@@ -3065,10 +3065,35 @@ em {
   height: 100%;
   object-fit: cover;
 }
+.club-photo-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
 .club-photo-preview {
-  width: 96px;
-  height: 72px;
-  border-radius: 9px;
+  position: relative;
+  width: 100%;
+  height: 150px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--indigo);
+}
+.club-photo-preview img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.club-photo-preview [data-club-photo-placeholder] {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.55);
+  font: 700 28px/1 var(--mono);
+  background: var(--indigo);
 }
 .owner-arena-info {
   display: flex;

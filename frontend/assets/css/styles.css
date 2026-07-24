@@ -6395,8 +6395,14 @@ button.match-player-row:focus-visible strong {
   color: #fff;
   font: 700 13px/1 var(--mono);
 }
+.super8-card-date {
+  margin: 8px 18px 0;
+  color: var(--coral-dark);
+  font: 700 14px/1.2 var(--sans);
+  letter-spacing: -0.01em;
+}
 .super8-card h3 {
-  margin: 14px 18px 4px;
+  margin: 6px 18px 4px;
   font-family: var(--sans);
   font-weight: 800;
   letter-spacing: -0.025em;
@@ -6902,7 +6908,7 @@ button.match-player-row:focus-visible strong {
 }
 .super8-progress-head strong {
   color: var(--coral-dark);
-  font: 700 15px/1 var(--mono);
+  font: 700 15px/1 var(--sans);
 }
 .super8-section {
   margin-top: 18px;
@@ -7066,7 +7072,7 @@ button.match-player-row:focus-visible strong {
 }
 .super8-game-score strong,
 .super8-my-score {
-  font: 700 18px/1 var(--mono);
+  font: 700 18px/1 var(--sans);
 }
 .super8-edit-result {
   border: 0;
@@ -7304,7 +7310,7 @@ button.super8-open-row:focus-visible {
   font-size: 14px;
 }
 .super8-start-time strong {
-  font: 700 16px/1 var(--mono);
+  font: 700 16px/1 var(--sans);
 }
 
 /* TASK-95 — data + horário de início em destaque tipográfico grande na
@@ -7327,7 +7333,7 @@ button.super8-open-row:focus-visible {
   color: var(--ink-soft);
 }
 .super8-datetime-highlight strong {
-  font: 700 26px/1.15 var(--mono);
+  font: 700 26px/1.15 var(--sans);
   color: var(--coral-dark);
 }
 @media (max-width: 560px) {

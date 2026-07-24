@@ -188,9 +188,10 @@
         <div><span class="status-badge super8-status-${escapeHTML(tournament.status)}">${escapeHTML(statusLabel)}</span><span class="super8-card-mode">${escapeHTML(modeLabel)}</span></div>
         <span class="super8-players-badge">${tournament.players.length}/${tournament.size}</span>
       </div>
+      <p class="super8-card-date">${escapeHTML(super8DateTimeLabel(tournament))}</p>
       <h3>${escapeHTML(tournament.name)}</h3>
       <p class="super8-card-categories">${escapeHTML(categoriesLabel)}</p>
-      <div class="super8-card-footer"><span>${escapeHTML(super8DateTimeLabel(tournament))}</span><span>${escapeHTML(super8CourtsSummary(tournament))}</span></div>
+      <div class="super8-card-footer"><span>${escapeHTML(super8CourtsSummary(tournament))}</span></div>
     </article>`;
   }
 

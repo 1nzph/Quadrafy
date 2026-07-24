@@ -813,7 +813,7 @@ em {
 }
 .step-number {
   color: var(--coral);
-  font: 600 11px/1 var(--sans);
+  font: 700 11px/1 var(--mono);
 }
 .step-card h3 {
   margin: 0 0 14px;
@@ -2333,7 +2333,7 @@ em {
 }
 .slot-duration {
   color: var(--coral);
-  font: 700 11px/1 var(--sans);
+  font: 700 11px/1 var(--mono);
   margin-top: 11px;
 }
 .time-slot.selected .slot-duration {
@@ -6902,7 +6902,7 @@ button.match-player-row:focus-visible strong {
 }
 .super8-progress-head strong {
   color: var(--coral-dark);
-  font: 700 15px/1 var(--sans);
+  font: 700 15px/1 var(--mono);
 }
 .super8-section {
   margin-top: 18px;
@@ -7327,7 +7327,7 @@ button.super8-open-row:focus-visible {
   color: var(--ink-soft);
 }
 .super8-datetime-highlight strong {
-  font: 700 26px/1.15 var(--sans);
+  font: 700 26px/1.15 var(--mono);
   color: var(--coral-dark);
 }
 @media (max-width: 560px) {

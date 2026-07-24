@@ -142,6 +142,16 @@
     mixed: "Misto obrigatório",
   };
 
+  const LEVEL_CATEGORY_SHORT = {
+    "Iniciante": "7ª",
+    "Iniciante Intermediário": "6ª",
+    "Intermediário": "5ª",
+    "Intermediário Avançado": "4ª",
+    "Avançado": "3ª",
+    "Avançado Elevado": "2ª",
+    "Elite": "Open",
+  };
+
   function super8DateTimeLabel(tournament) {
     const parts = [];
     if (tournament.date) {
@@ -167,13 +177,11 @@
   // com data/horário e quadras (mesmo padrão de qualidade do .match-card).
   function super8Card(tournament) {
     const modeLabel =
-      tournament.mode === "duplas_fixas"
-        ? "Duplas fixas"
-        : "Cada um por si (rotação)";
+      tournament.mode === "duplas_fixas" ? "Duplas fixas" : "Rotação";
     const statusLabel =
       SUPER8_STATUS_LABELS[tournament.status] || tournament.status;
     const categoriesLabel = tournament.levelCategories
-      ? tournament.levelCategories.join(", ")
+      ? tournament.levelCategories.map((c) => LEVEL_CATEGORY_SHORT[c] ?? c).join(", ")
       : "Todas as categorias";
     return `<article class="super8-card card-hover" data-super8-open="${escapeHTML(tournament.id)}" tabindex="0" role="button" aria-label="Abrir torneio ${escapeHTML(tournament.name)}">
       <div class="super8-card-top">
@@ -577,9 +585,7 @@
     const statusLabel =
       SUPER8_STATUS_LABELS[tournament.status] || tournament.status;
     const modeLabel =
-      tournament.mode === "duplas_fixas"
-        ? "Duplas fixas"
-        : "Cada um por si (rotação)";
+      tournament.mode === "duplas_fixas" ? "Duplas fixas" : "Rotação";
     const games = tournament.games || [];
     const waiting = games.filter((game) => game.status !== "finalizado");
     const finished = games.filter((game) => game.status === "finalizado");
@@ -637,7 +643,7 @@
 
     // TASK-77 — categorias permitidas (null = todas).
     const categoriesLabel = tournament.levelCategories
-      ? tournament.levelCategories.join(", ")
+      ? tournament.levelCategories.map((c) => LEVEL_CATEGORY_SHORT[c] ?? c).join(", ")
       : "Todas as categorias";
     const genderLabel = SUPER8_GENDER_LABELS[tournament.genderCategory] ?? "Todos";
     // TASK-76 — quadras do torneio, visíveis também para o clube conferir

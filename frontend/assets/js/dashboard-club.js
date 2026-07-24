@@ -2241,9 +2241,6 @@
   async function initialize() {
     setupTabs();
     setupSuper8();
-    // TASK-51: botão "Adicionar arena" (antes sem listener — botão morto).
-    $("[data-add-arena]")?.addEventListener("click", openArenaModal);
-    $("[data-arena-form]")?.addEventListener("submit", saveArena);
     loadArenas();
     setupCourtModal();
     setupClubSettings();

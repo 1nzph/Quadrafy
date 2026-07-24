@@ -1982,9 +1982,7 @@
     $("[data-super8-player-detail-title]").textContent = tournament.name;
     const modeLabel =
       tournament.mode === "duplas_fixas" ? "Duplas fixas" : "Rotação";
-    const categoriesLabel = tournament.levelCategories
-      ? tournament.levelCategories.join(", ")
-      : "Todas as categorias";
+    const categoriesLabel = formatLevelCategoriesShort(tournament);
     const courtsLabel = tournament.courts?.length
       ? tournament.courts.map((court) => escapeHTML(court.name)).join(", ")
       : "A definir";

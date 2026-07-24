@@ -1913,13 +1913,37 @@
       const history = (tournaments ?? []).filter((t) => t.status === "finalizado");
       activeCount = active.length;
       const activeHTML = active.length
-        ? active.map((t, i) => super8PlayerCard(t, myId, i)).join("")
+        ? active.map((t) => super8OpenCard({ ...t, alreadyJoined: true })).join("")
         : '<p class="profile-data-note">Você ainda não está inscrito em nenhum Super 8.</p>';
       const historyHTML = history.length
-        ? history.map((t, i) => super8PlayerCard(t, myId, i)).join("")
+        ? history.map((t) => super8OpenCard({ ...t, alreadyJoined: true })).join("")
         : '<p class="profile-data-note">Nenhum Super 8 finalizado ainda.</p>';
-      if (activeList) activeList.innerHTML = activeHTML;
-      if (historyList) historyList.innerHTML = historyHTML;
+      if (activeList) {
+        activeList.innerHTML = activeHTML;
+        $$("[data-super8-open-row]", activeList).forEach((row) => {
+          const open = () => {
+            const tournament = active.find((item) => item.id === row.dataset.super8OpenRow);
+            if (tournament) openSuper8PlayerDetail(tournament);
+          };
+          row.addEventListener("click", open);
+          row.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+          });
+        });
+      }
+      if (historyList) {
+        historyList.innerHTML = historyHTML;
+        $$("[data-super8-open-row]", historyList).forEach((row) => {
+          const open = () => {
+            const tournament = history.find((item) => item.id === row.dataset.super8OpenRow);
+            if (tournament) openSuper8PlayerDetail(tournament);
+          };
+          row.addEventListener("click", open);
+          row.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+          });
+        });
+      }
     } catch (error) {
       if (activeList) activeList.innerHTML = `<p class="profile-data-note">${escapeHTML(error.message)}</p>`;
     }

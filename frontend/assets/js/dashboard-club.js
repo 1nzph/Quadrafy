@@ -175,23 +175,52 @@
   // TASK-94 — hierarquia visual clara: contador de jogadores em destaque no
   // canto superior direito, corpo com nome/modalidade/categorias, rodapé
   // com data/horário e quadras (mesmo padrão de qualidade do .match-card).
+  const SUPER8_GENDER_CHIP_LABELS = {
+    women_only: "Só mulheres",
+    men_only: "Só homens",
+    mixed: "Misto",
+  };
+
   function super8Card(tournament) {
     const modeLabel =
-      tournament.mode === "duplas_fixas" ? "Duplas fixas" : "Rotação";
+      tournament.mode === "duplas_fixas" ? "Duplas Fixas" : "Rotação";
     const statusLabel =
       SUPER8_STATUS_LABELS[tournament.status] || tournament.status;
-    const categoriesLabel = tournament.levelCategories
+    const levelShort = tournament.levelCategories?.length
       ? tournament.levelCategories.map((c) => LEVEL_CATEGORY_SHORT[c] ?? c).join(", ")
-      : "Todas as categorias";
+      : "Todas";
+    const levelChip = `<span class="super8-level-chip">Cat. ${escapeHTML(levelShort)}</span>`;
+    const genderLabel = SUPER8_GENDER_CHIP_LABELS[tournament.genderCategory];
+    const genderChip = genderLabel
+      ? `<span class="super8-level-chip gender-chip gender-${escapeHTML(tournament.genderCategory)}">${escapeHTML(genderLabel)}</span>`
+      : "";
+    const players = tournament.players || [];
+    const visiblePlayers = players.slice(0, 4);
+    const overflow = players.length - 4;
+    const playerBubbles = visiblePlayers.map((p) => {
+      const url = safePhotoUrl(p.photoUrl);
+      const pname = p.name || "Jogador";
+      const initials = String(pname).trim().split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+      return url
+        ? `<span class="super8-player-bubble" style="background-image:url('${escapeHTML(url)}')" aria-label="${escapeHTML(pname)}"></span>`
+        : `<span class="super8-player-bubble super8-player-bubble-initials" aria-label="${escapeHTML(pname)}">${escapeHTML(initials)}</span>`;
+    }).join("");
+    const overflowBubble = overflow > 0 ? `<span class="super8-player-overflow">+${overflow}</span>` : "";
     return `<article class="super8-card card-hover" data-super8-open="${escapeHTML(tournament.id)}" tabindex="0" role="button" aria-label="Abrir torneio ${escapeHTML(tournament.name)}">
-      <div class="super8-card-top">
-        <div><span class="status-badge super8-status-${escapeHTML(tournament.status)}">${escapeHTML(statusLabel)}</span><span class="super8-card-mode">${escapeHTML(modeLabel)}</span></div>
-        <span class="super8-players-badge">${tournament.players.length}/${tournament.size}</span>
+      <div class="super8-card-header">
+        <span class="super8-card-datetime">${escapeHTML(super8DateTimeLabel(tournament))}</span>
+        <span class="status-badge super8-status-${escapeHTML(tournament.status)}">${escapeHTML(statusLabel)}</span>
       </div>
-      <p class="super8-card-date">${escapeHTML(super8DateTimeLabel(tournament))}</p>
+      <p class="super8-card-format">Super ${tournament.size} · ${escapeHTML(modeLabel)}</p>
       <h3>${escapeHTML(tournament.name)}</h3>
-      <p class="super8-card-categories">${escapeHTML(categoriesLabel)}</p>
-      <div class="super8-card-footer"><span>${escapeHTML(super8CourtsSummary(tournament))}</span></div>
+      <div class="super8-card-meta">
+        <div class="super8-level-chips">${levelChip}${genderChip}</div>
+        <div class="super8-card-players">${playerBubbles}${overflowBubble}<span class="super8-players-count">${players.length}/${tournament.size}</span></div>
+      </div>
+      <div class="super8-card-footer">
+        <span>${escapeHTML(super8CourtsSummary(tournament))}</span>
+        <span class="super8-card-cta">Gerenciar →</span>
+      </div>
     </article>`;
   }
 

@@ -6395,14 +6395,8 @@ button.match-player-row:focus-visible strong {
   color: #fff;
   font: 700 13px/1 var(--mono);
 }
-.super8-card-date {
-  margin: 8px 18px 0;
-  color: var(--coral-dark);
-  font: 700 14px/1.2 var(--sans);
-  letter-spacing: -0.01em;
-}
 .super8-card h3 {
-  margin: 6px 18px 4px;
+  margin: 14px 18px 4px;
   font-family: var(--sans);
   font-weight: 800;
   letter-spacing: -0.025em;
